@@ -17,6 +17,7 @@ from app.models import (
     SummarizeResponse,
     VideoMetadata,
 )
+from app.services.fallacy_analyzer import analyze_fallacies
 from app.services.summarizer import generate_summary
 from app.services.transcript import calculate_duration, get_transcript
 from app.services.youtube import extract_video_id, get_video_metadata
@@ -95,7 +96,12 @@ async def summarize_video(
         )
 
     try:
-        summary = generate_summary(full_text)
+        transcript_word_count = len(full_text.split())
+        summary = generate_summary(
+            full_text,
+            transcript_word_count=transcript_word_count,
+            length_percent=request.length_percent,
+        )
     except APIError:
         return JSONResponse(
             status_code=502,
@@ -116,6 +122,13 @@ async def summarize_video(
             ).model_dump(),
         )
 
+    # Fallacy analysis — failures must not block the summary
+    fallacy_analysis = None
+    try:
+        fallacy_analysis = analyze_fallacies(full_text)
+    except Exception:
+        logger.warning("Failed to perform fallacy analysis for %s", video_id)
+
     # Fetch metadata — failures must not block the summary
     metadata: VideoMetadata | None = None
     try:
@@ -126,4 +139,6 @@ async def summarize_video(
     except Exception:
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
-    return SummarizeResponse(summary=summary, metadata=metadata)
+    return SummarizeResponse(
+        summary=summary, metadata=metadata, fallacy_analysis=fallacy_analysis
+    )

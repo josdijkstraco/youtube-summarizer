@@ -1,0 +1,229 @@
+openapi: "3.0.3"
+info:
+  title: YouTube Video Summarizer API
+  version: "1.1.0"
+  description: |
+    API for summarizing YouTube videos. Accepts a YouTube URL and an
+    optional summary length percentage, retrieves the transcript,
+    generates a summary using GPT-4o-mini, and returns the summary
+    with video metadata.
+
+    v1.1.0: Added optional `length_percent` parameter to control
+    summary length as a percentage of the transcript's word count.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /api/summarize:
+    post:
+      operationId: summarizeVideo
+      summary: Summarize a YouTube video
+      description: |
+        Accepts a YouTube video URL and an optional summary length
+        percentage. Retrieves the transcript, generates a summary
+        guided by the length preference, and returns it with video
+        metadata.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SummarizeRequest"
+            examples:
+              default_length:
+                summary: Default summary length (25%)
+                value:
+                  url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+              custom_length:
+                summary: Short summary (10%)
+                value:
+                  url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                  length_percent: 10
+              detailed_length:
+                summary: Detailed summary (50%)
+                value:
+                  url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                  length_percent: 50
+      responses:
+        "200":
+          description: Summary generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummarizeResponse"
+              example:
+                summary: "This video discusses the key principles of..."
+                metadata:
+                  video_id: "dQw4w9WgXcQ"
+                  title: "Example Video Title"
+                  channel_name: "Example Channel"
+                  duration_seconds: 212
+                  thumbnail_url: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+        "400":
+          description: Invalid request (bad URL, playlist URL, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid_url:
+                  summary: Not a YouTube URL
+                  value:
+                    error: "invalid_url"
+                    message: "The provided URL is not a valid YouTube video URL."
+                    details: "Supported formats: youtube.com/watch?v=..., youtu.be/..., youtube.com/shorts/..."
+                playlist:
+                  summary: Playlist URL
+                  value:
+                    error: "playlist_not_supported"
+                    message: "Playlist URLs are not supported. Please provide a single video URL."
+                    details: null
+        "404":
+          description: Video not found or transcript unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                not_found:
+                  summary: Video not found
+                  value:
+                    error: "video_not_found"
+                    message: "The video could not be found. It may have been removed or the URL may be incorrect."
+                    details: null
+                no_transcript:
+                  summary: No transcript available
+                  value:
+                    error: "transcript_unavailable"
+                    message: "No transcript is available for this video. Try a different video that has captions enabled."
+                    details: null
+        "422":
+          description: Validation error (invalid length_percent value)
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Standard FastAPI/Pydantic validation error response
+        "502":
+          description: External service failure (OpenAI)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "summarization_failed"
+                message: "Unable to generate summary at this time. Please try again later."
+                details: null
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "internal_error"
+                message: "An unexpected error occurred. Please try again."
+                details: null
+
+  /api/health:
+    get:
+      operationId: healthCheck
+      summary: Health check endpoint
+      description: Returns the service status.
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                required:
+                  - status
+
+components:
+  schemas:
+    SummarizeRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: YouTube video URL
+          example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        length_percent:
+          type: integer
+          description: |
+            Target summary length as a percentage of the transcript's
+            word count. Must be between 10 and 50, in increments of 5.
+            Defaults to 25 if not provided.
+          minimum: 10
+          maximum: 50
+          default: 25
+          enum: [10, 15, 20, 25, 30, 35, 40, 45, 50]
+          example: 25
+
+    SummarizeResponse:
+      type: object
+      required:
+        - summary
+      properties:
+        summary:
+          type: string
+          description: Generated text summary of the video
+        metadata:
+          $ref: "#/components/schemas/VideoMetadata"
+
+    VideoMetadata:
+      type: object
+      properties:
+        video_id:
+          type: string
+          description: YouTube video ID (11 characters)
+          example: "dQw4w9WgXcQ"
+        title:
+          type: string
+          description: Video title
+          nullable: true
+        channel_name:
+          type: string
+          description: Channel or author name
+          nullable: true
+        duration_seconds:
+          type: integer
+          description: Approximate video duration in seconds
+          nullable: true
+        thumbnail_url:
+          type: string
+          description: Video thumbnail URL
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - invalid_url
+            - video_not_found
+            - transcript_unavailable
+            - playlist_not_supported
+            - summarization_failed
+            - internal_error
+        message:
+          type: string
+          description: Human-readable, actionable error message
+        details:
+          type: string
+          description: Additional context or suggestions
+          nullable: true

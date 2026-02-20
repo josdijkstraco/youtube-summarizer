@@ -1,27 +1,42 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { SummarizeResponse, ErrorResponse, VideoMetadata } from "@/types";
+import type {
+  SummarizeResponse,
+  ErrorResponse,
+  VideoMetadata,
+  FallacyAnalysisResult,
+} from "@/types";
 import { summarizeVideo, ApiError } from "@/services/api";
 import UrlInput from "@/components/UrlInput.vue";
+import LengthSlider from "@/components/LengthSlider.vue";
 import LoadingState from "@/components/LoadingState.vue";
 import SummaryDisplay from "@/components/SummaryDisplay.vue";
+import FallacyDisplay from "@/components/FallacyDisplay.vue";
+import FallacySummaryPanel from "@/components/FallacySummaryPanel.vue";
 import ErrorMessage from "@/components/ErrorMessage.vue";
 
 const loading = ref(false);
+const lengthPercent = ref(25);
 const summary = ref<string | null>(null);
 const metadata = ref<VideoMetadata | null>(null);
+const fallacyAnalysis = ref<FallacyAnalysisResult | null>(null);
 const error = ref<ErrorResponse | null>(null);
 
 async function handleSubmit(url: string) {
   loading.value = true;
   summary.value = null;
   metadata.value = null;
+  fallacyAnalysis.value = null;
   error.value = null;
 
   try {
-    const response: SummarizeResponse = await summarizeVideo(url);
+    const response: SummarizeResponse = await summarizeVideo(
+      url,
+      lengthPercent.value,
+    );
     summary.value = response.summary;
     metadata.value = response.metadata ?? null;
+    fallacyAnalysis.value = response.fallacy_analysis ?? null;
   } catch (e) {
     if (e instanceof ApiError) {
       error.value = e.errorResponse;
@@ -46,9 +61,18 @@ function handleRetry() {
   <div id="app">
     <h1>YouTube Summarizer</h1>
     <UrlInput :loading="loading" @submit="handleSubmit" />
+    <LengthSlider v-model="lengthPercent" :disabled="loading" />
     <LoadingState v-if="loading" />
     <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
     <SummaryDisplay v-if="summary" :summary="summary" :metadata="metadata" />
+    <FallacySummaryPanel
+      v-if="fallacyAnalysis"
+      :summary="fallacyAnalysis.summary"
+    />
+    <FallacyDisplay
+      v-if="fallacyAnalysis"
+      :fallacies="fallacyAnalysis.fallacies"
+    />
   </div>
 </template>
 
