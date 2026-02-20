@@ -1,7 +1,16 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models import ErrorResponse, SummarizeRequest, VideoMetadata
+from app.models import (
+    ClearExample,
+    ErrorResponse,
+    Fallacy,
+    FallacyAnalysisResult,
+    FallacySummary,
+    SummarizeRequest,
+    SummarizeResponse,
+    VideoMetadata,
+)
 
 
 class TestSummarizeRequest:
@@ -24,6 +33,50 @@ class TestSummarizeRequest:
     def test_rejects_missing_url(self) -> None:
         with pytest.raises(ValidationError):
             SummarizeRequest()  # type: ignore[call-arg]
+
+
+class TestSummarizeRequestLengthPercent:
+    """Test length_percent field validation."""
+
+    def test_defaults_to_25(self) -> None:
+        req = SummarizeRequest(url="https://youtu.be/abc123def45")
+        assert req.length_percent == 25
+
+    def test_accepts_minimum_10(self) -> None:
+        req = SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=10)
+        assert req.length_percent == 10
+
+    def test_accepts_maximum_50(self) -> None:
+        req = SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=50)
+        assert req.length_percent == 50
+
+    def test_accepts_middle_value_35(self) -> None:
+        req = SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=35)
+        assert req.length_percent == 35
+
+    def test_rejects_below_minimum(self) -> None:
+        with pytest.raises(ValidationError):
+            SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=5)
+
+    def test_rejects_above_maximum(self) -> None:
+        with pytest.raises(ValidationError):
+            SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=55)
+
+    def test_rejects_zero(self) -> None:
+        with pytest.raises(ValidationError):
+            SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=0)
+
+    def test_rejects_non_multiple_of_5_12(self) -> None:
+        with pytest.raises(ValidationError, match="multiple of 5"):
+            SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=12)
+
+    def test_rejects_non_multiple_of_5_23(self) -> None:
+        with pytest.raises(ValidationError, match="multiple of 5"):
+            SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=23)
+
+    def test_rejects_non_multiple_of_5_37(self) -> None:
+        with pytest.raises(ValidationError, match="multiple of 5"):
+            SummarizeRequest(url="https://youtu.be/abc123def45", length_percent=37)
 
 
 class TestVideoMetadata:
@@ -72,3 +125,156 @@ class TestErrorResponse:
     def test_rejects_missing_message(self) -> None:
         with pytest.raises(ValidationError):
             ErrorResponse(error="invalid_url")  # type: ignore[call-arg]
+
+
+class TestClearExample:
+    def test_requires_scenario_and_why_wrong(self) -> None:
+        ex = ClearExample(
+            scenario="A mechanic example", why_wrong="Irrelevant to diagnosis"
+        )
+        assert ex.scenario == "A mechanic example"
+        assert ex.why_wrong == "Irrelevant to diagnosis"
+
+    def test_rejects_missing_scenario(self) -> None:
+        with pytest.raises(ValidationError):
+            ClearExample(why_wrong="Missing scenario")  # type: ignore[call-arg]
+
+    def test_rejects_missing_why_wrong(self) -> None:
+        with pytest.raises(ValidationError):
+            ClearExample(scenario="Missing why_wrong")  # type: ignore[call-arg]
+
+
+class TestFallacy:
+    def _make_clear_example(self) -> ClearExample:
+        return ClearExample(scenario="Example scenario", why_wrong="Example reason")
+
+    def test_all_fields(self) -> None:
+        f = Fallacy(
+            timestamp="1:23",
+            quote="You can't trust him",
+            fallacy_name="Ad Hominem",
+            category="Relevance",
+            severity="high",
+            explanation="Attacks the person rather than the argument.",
+            clear_example=self._make_clear_example(),
+        )
+        assert f.timestamp == "1:23"
+        assert f.quote == "You can't trust him"
+        assert f.fallacy_name == "Ad Hominem"
+        assert f.category == "Relevance"
+        assert f.severity == "high"
+        assert f.explanation == "Attacks the person rather than the argument."
+        assert f.clear_example.scenario == "Example scenario"
+
+    def test_null_timestamp(self) -> None:
+        f = Fallacy(
+            timestamp=None,
+            quote="Everyone knows this",
+            fallacy_name="Bandwagon",
+            category="Emotional Appeal",
+            severity="medium",
+            explanation="Appeal to popularity.",
+            clear_example=self._make_clear_example(),
+        )
+        assert f.timestamp is None
+
+    def test_timestamp_defaults_to_none(self) -> None:
+        f = Fallacy(
+            quote="Some quote",
+            fallacy_name="Straw Man",
+            category="Relevance",
+            severity="low",
+            explanation="Misrepresents the argument.",
+            clear_example=self._make_clear_example(),
+        )
+        assert f.timestamp is None
+
+
+class TestFallacySummary:
+    def test_all_fields(self) -> None:
+        s = FallacySummary(
+            total_fallacies=5,
+            high_severity=2,
+            medium_severity=2,
+            low_severity=1,
+            primary_tactics=["Ad Hominem", "Straw Man"],
+        )
+        assert s.total_fallacies == 5
+        assert s.high_severity == 2
+        assert s.medium_severity == 2
+        assert s.low_severity == 1
+        assert s.primary_tactics == ["Ad Hominem", "Straw Man"]
+
+
+class TestFallacyAnalysisResult:
+    def test_with_summary_and_fallacies(self) -> None:
+        result = FallacyAnalysisResult(
+            summary=FallacySummary(
+                total_fallacies=1,
+                high_severity=1,
+                medium_severity=0,
+                low_severity=0,
+                primary_tactics=["Ad Hominem"],
+            ),
+            fallacies=[
+                Fallacy(
+                    quote="You can't trust him",
+                    fallacy_name="Ad Hominem",
+                    category="Relevance",
+                    severity="high",
+                    explanation="Attacks the person.",
+                    clear_example=ClearExample(
+                        scenario="Example", why_wrong="Irrelevant"
+                    ),
+                )
+            ],
+        )
+        assert result.summary.total_fallacies == 1
+        assert len(result.fallacies) == 1
+
+    def test_empty_fallacies_list(self) -> None:
+        result = FallacyAnalysisResult(
+            summary=FallacySummary(
+                total_fallacies=0,
+                high_severity=0,
+                medium_severity=0,
+                low_severity=0,
+                primary_tactics=[],
+            ),
+            fallacies=[],
+        )
+        assert result.fallacies == []
+
+
+class TestSummarizeResponseFallacyField:
+    def test_fallacy_analysis_defaults_to_none(self) -> None:
+        resp = SummarizeResponse(summary="A summary")
+        assert resp.fallacy_analysis is None
+
+    def test_with_populated_fallacy_analysis(self) -> None:
+        analysis = FallacyAnalysisResult(
+            summary=FallacySummary(
+                total_fallacies=1,
+                high_severity=0,
+                medium_severity=1,
+                low_severity=0,
+                primary_tactics=["Straw Man"],
+            ),
+            fallacies=[
+                Fallacy(
+                    quote="That's not what I said",
+                    fallacy_name="Straw Man",
+                    category="Relevance",
+                    severity="medium",
+                    explanation="Misrepresents the argument.",
+                    clear_example=ClearExample(
+                        scenario="Claiming someone wants no rules",
+                        why_wrong="They only wanted one change",
+                    ),
+                )
+            ],
+        )
+        resp = SummarizeResponse(summary="A summary", fallacy_analysis=analysis)
+        assert resp.fallacy_analysis is not None
+        assert resp.fallacy_analysis.summary.total_fallacies == 1
+        assert resp.fallacy_analysis.fallacies[0].fallacy_name == "Straw Man"

@@ -53,7 +53,7 @@ function formatDuration(seconds: number): string {
 <style scoped>
 .summary-display {
   width: 100%;
-  max-width: 640px;
+  max-width: 960px;
   padding: 1.5rem;
   background-color: #f7fafc;
   border: 1px solid #e2e8f0;
