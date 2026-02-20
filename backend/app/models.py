@@ -56,10 +56,20 @@ class FallacyAnalysisResult(BaseModel):
     fallacies: list[Fallacy]
 
 
+class FallacyAnalysisRequest(BaseModel):
+    url: str
+
+    @field_validator("url")
+    @classmethod
+    def url_must_not_be_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("URL must not be empty")
+        return v.strip()
+
+
 class SummarizeResponse(BaseModel):
     summary: str
     metadata: VideoMetadata | None = None
-    fallacy_analysis: FallacyAnalysisResult | None = None
 
 
 class ErrorResponse(BaseModel):

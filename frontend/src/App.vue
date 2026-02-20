@@ -6,7 +6,7 @@ import type {
   VideoMetadata,
   FallacyAnalysisResult,
 } from "@/types";
-import { summarizeVideo, ApiError } from "@/services/api";
+import { summarizeVideo, analyzeFallacies, ApiError } from "@/services/api";
 import UrlInput from "@/components/UrlInput.vue";
 import LengthSlider from "@/components/LengthSlider.vue";
 import LoadingState from "@/components/LoadingState.vue";
@@ -21,6 +21,9 @@ const summary = ref<string | null>(null);
 const metadata = ref<VideoMetadata | null>(null);
 const fallacyAnalysis = ref<FallacyAnalysisResult | null>(null);
 const error = ref<ErrorResponse | null>(null);
+const fallacyLoading = ref(false);
+const submittedUrl = ref<string | null>(null);
+const fallacyError = ref<ErrorResponse | null>(null);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -28,6 +31,8 @@ async function handleSubmit(url: string) {
   metadata.value = null;
   fallacyAnalysis.value = null;
   error.value = null;
+  fallacyError.value = null;
+  submittedUrl.value = null;
 
   try {
     const response: SummarizeResponse = await summarizeVideo(
@@ -36,7 +41,7 @@ async function handleSubmit(url: string) {
     );
     summary.value = response.summary;
     metadata.value = response.metadata ?? null;
-    fallacyAnalysis.value = response.fallacy_analysis ?? null;
+    submittedUrl.value = url;
   } catch (e) {
     if (e instanceof ApiError) {
       error.value = e.errorResponse;
@@ -49,6 +54,27 @@ async function handleSubmit(url: string) {
     }
   } finally {
     loading.value = false;
+  }
+}
+
+async function handleAnalyzeFallacies() {
+  if (!submittedUrl.value) return;
+  fallacyLoading.value = true;
+  fallacyError.value = null;
+  try {
+    fallacyAnalysis.value = await analyzeFallacies(submittedUrl.value);
+  } catch (e) {
+    if (e instanceof ApiError) {
+      fallacyError.value = e.errorResponse;
+    } else {
+      fallacyError.value = {
+        error: "internal_error",
+        message: "An unexpected error occurred. Please try again.",
+        details: null,
+      };
+    }
+  } finally {
+    fallacyLoading.value = false;
   }
 }
 
@@ -65,6 +91,19 @@ function handleRetry() {
     <LoadingState v-if="loading" />
     <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
     <SummaryDisplay v-if="summary" :summary="summary" :metadata="metadata" />
+    <button
+      v-if="summary && !fallacyAnalysis && !fallacyLoading"
+      class="analyze-button"
+      @click="handleAnalyzeFallacies"
+    >
+      Analyze for Logical Fallacies
+    </button>
+    <LoadingState v-if="fallacyLoading" />
+    <ErrorMessage
+      v-if="fallacyError"
+      :error="fallacyError"
+      @retry="() => { fallacyError = null; }"
+    />
     <FallacySummaryPanel
       v-if="fallacyAnalysis"
       :summary="fallacyAnalysis.summary"
@@ -95,5 +134,21 @@ h1 {
   font-weight: 700;
   color: #1a202c;
   margin: 0;
+}
+
+.analyze-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.analyze-button:hover {
+  background-color: #c53030;
 }
 </style>

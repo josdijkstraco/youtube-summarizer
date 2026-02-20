@@ -42,7 +42,6 @@ export interface FallacyAnalysisResult {
 export interface SummarizeResponse {
   summary: string;
   metadata: VideoMetadata | null;
-  fallacy_analysis: FallacyAnalysisResult | null;
 }
 
 export interface ErrorResponse {

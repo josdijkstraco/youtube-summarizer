@@ -93,8 +93,8 @@ class TestSummarizeEndpointHappyPath:
         # Validate SummarizeResponse schema
         assert isinstance(data["summary"], str)
         assert len(data["summary"]) > 0
-        # metadata is None for Phase 3 (populated in Phase 5)
         assert "metadata" in data
+        assert "fallacy_analysis" not in data
 
 
 def _assert_error_response(data: dict, error_code: str) -> None:
@@ -243,8 +243,8 @@ class TestSummarizeEndpointErrors:
         assert response.status_code == 422
 
 
-class TestSummarizeEndpointFallacyAnalysis:
-    """Integration tests for fallacy analysis in summarize response."""
+class TestFallaciesEndpoint:
+    """Integration tests for POST /api/fallacies."""
 
     def _make_snippet(self, text: str, start: float, duration: float) -> MagicMock:
         snippet = MagicMock()
@@ -283,15 +283,12 @@ class TestSummarizeEndpointFallacyAnalysis:
         )
 
     @patch("app.services.fallacy_analyzer.OpenAI")
-    @patch("app.services.summarizer.OpenAI")
     @patch("app.services.transcript.YouTubeTranscriptApi")
-    def test_response_includes_fallacy_analysis(
+    def test_returns_fallacy_analysis_for_valid_url(
         self,
         mock_ytt_class: MagicMock,
-        mock_summarizer_openai: MagicMock,
         mock_fallacy_openai: MagicMock,
     ) -> None:
-        # Mock transcript
         mock_ytt = MagicMock()
         mock_ytt_class.return_value = mock_ytt
         snippets = [self._make_snippet("Hello world", 0.0, 2.5)]
@@ -302,15 +299,6 @@ class TestSummarizeEndpointFallacyAnalysis:
         ]
         mock_ytt.fetch.return_value = mock_transcript
 
-        # Mock summarizer OpenAI
-        mock_sum_client = MagicMock()
-        mock_summarizer_openai.return_value = mock_sum_client
-        mock_sum_response = MagicMock()
-        mock_sum_response.choices = [MagicMock()]
-        mock_sum_response.choices[0].message.content = "A summary."
-        mock_sum_client.chat.completions.create.return_value = mock_sum_response
-
-        # Mock fallacy analyzer OpenAI
         mock_fal_client = MagicMock()
         mock_fallacy_openai.return_value = mock_fal_client
         mock_fal_response = MagicMock()
@@ -319,29 +307,49 @@ class TestSummarizeEndpointFallacyAnalysis:
         mock_fal_client.chat.completions.create.return_value = mock_fal_response
 
         response = client.post(
-            "/api/summarize",
+            "/api/fallacies",
             json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert "fallacy_analysis" in data
-        assert data["fallacy_analysis"] is not None
-        assert data["fallacy_analysis"]["summary"]["total_fallacies"] == 1
-        assert len(data["fallacy_analysis"]["fallacies"]) == 1
+        assert "summary" in data
+        assert "fallacies" in data
+        assert data["summary"]["total_fallacies"] == 1
+        assert len(data["fallacies"]) == 1
 
-    @patch("app.services.fallacy_analyzer.OpenAI")
-    @patch("app.services.summarizer.OpenAI")
+    def test_invalid_url_returns_400(self) -> None:
+        response = client.post(
+            "/api/fallacies",
+            json={"url": "not a url at all"},
+        )
+        assert response.status_code == 400
+        _assert_error_response(response.json(), "invalid_url")
+
     @patch("app.services.transcript.YouTubeTranscriptApi")
-    def test_fallacy_analysis_null_on_failure(
+    def test_transcript_unavailable_returns_404(
+        self, mock_ytt_class: MagicMock
+    ) -> None:
+        from youtube_transcript_api._errors import TranscriptsDisabled
+
+        mock_ytt = MagicMock()
+        mock_ytt_class.return_value = mock_ytt
+        mock_ytt.fetch.side_effect = TranscriptsDisabled("dQw4w9WgXcQ")
+
+        response = client.post(
+            "/api/fallacies",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "transcript_unavailable")
+
+    @patch("app.main.analyze_fallacies")
+    @patch("app.services.transcript.YouTubeTranscriptApi")
+    def test_analyzer_failure_returns_502(
         self,
         mock_ytt_class: MagicMock,
-        mock_summarizer_openai: MagicMock,
-        mock_fallacy_openai: MagicMock,
+        mock_analyze: MagicMock,
     ) -> None:
-        from openai import APIError
-
-        # Mock transcript
         mock_ytt = MagicMock()
         mock_ytt_class.return_value = mock_ytt
         snippets = [self._make_snippet("Hello world", 0.0, 2.5)]
@@ -352,39 +360,14 @@ class TestSummarizeEndpointFallacyAnalysis:
         ]
         mock_ytt.fetch.return_value = mock_transcript
 
-        # Mock summarizer OpenAI — succeeds
-        mock_sum_client = MagicMock()
-        mock_summarizer_openai.return_value = mock_sum_client
-        mock_sum_response = MagicMock()
-        mock_sum_response.choices = [MagicMock()]
-        mock_sum_response.choices[0].message.content = "A summary."
-        mock_sum_client.chat.completions.create.return_value = mock_sum_response
-
-        # Mock fallacy analyzer OpenAI — fails
-        mock_fal_client = MagicMock()
-        mock_fallacy_openai.return_value = mock_fal_client
-        mock_fal_client.chat.completions.create.side_effect = APIError(
-            message="Error", request=MagicMock(), body=None
-        )
+        mock_analyze.return_value = None
 
         response = client.post(
-            "/api/summarize",
+            "/api/fallacies",
             json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
         )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["summary"] == "A summary."
-        assert data["fallacy_analysis"] is None
-
-    def test_existing_error_responses_unchanged(self) -> None:
-        """Verify existing error codes still work after fallacy analysis addition."""
-        response = client.post(
-            "/api/summarize",
-            json={"url": "not a url at all"},
-        )
-        assert response.status_code == 400
-        _assert_error_response(response.json(), "invalid_url")
+        assert response.status_code == 502
+        _assert_error_response(response.json(), "analysis_failed")
 
 
 class TestSummarizeEndpointLengthPercent:
