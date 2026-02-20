@@ -1,4 +1,4 @@
-import type { SummarizeResponse, ErrorResponse } from "@/types";
+import type { SummarizeResponse, FallacyAnalysisResult, ErrorResponse } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -25,6 +25,30 @@ export async function summarizeVideo(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "An unexpected error occurred. Please try again.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function analyzeFallacies(url: string): Promise<FallacyAnalysisResult> {
+  const response = await fetch(`${API_BASE}/api/fallacies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
   });
 
   if (!response.ok) {
