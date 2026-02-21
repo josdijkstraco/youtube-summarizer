@@ -1,4 +1,4 @@
-import type { SummarizeResponse, FallacyAnalysisResult, ErrorResponse } from "@/types";
+import type { SummarizeResponse, FallacyAnalysisResult, ErrorResponse, HistoryResponse } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -59,6 +59,26 @@ export async function analyzeFallacies(url: string): Promise<FallacyAnalysisResu
       errorResponse = {
         error: "internal_error",
         message: "An unexpected error occurred. Please try again.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function fetchHistory(limit = 50): Promise<HistoryResponse> {
+  const response = await fetch(`${API_BASE}/api/history?limit=${limit}`);
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to load history.",
         details: null,
       };
     }

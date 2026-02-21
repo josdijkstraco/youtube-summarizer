@@ -43,10 +43,23 @@ export interface SummarizeResponse {
   summary: string;
   transcript: string;
   metadata: VideoMetadata | null;
+  storage_warning?: boolean;
 }
 
 export interface ErrorResponse {
   error: string;
   message: string;
   details: string | null;
+}
+
+export interface HistoryItem {
+  video_id: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  summary: string;
+  created_at: string; // ISO 8601 timestamp
+}
+
+export interface HistoryResponse {
+  items: HistoryItem[];
 }
