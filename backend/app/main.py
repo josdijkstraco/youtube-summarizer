@@ -14,7 +14,7 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
-from app.db import close_pool, create_pool, create_table, get_db, list_recent, save_record
+from app.db import close_pool, create_pool, create_table, get_by_video_id, get_db, list_recent, save_record
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
@@ -95,6 +95,21 @@ async def summarize_video(
                     "youtu.be/..., youtube.com/shorts/..."
                 ),
             ).model_dump(),
+        )
+
+    # Cache check: return stored result if available
+    existing = await get_by_video_id(conn, video_id)
+    if existing is not None:
+        cached_metadata = VideoMetadata(
+            video_id=existing.video_id,
+            title=existing.title,
+            thumbnail_url=existing.thumbnail_url,
+        )
+        return SummarizeResponse(
+            summary=existing.summary,
+            transcript=existing.transcript,
+            metadata=cached_metadata,
+            storage_warning=False,
         )
 
     try:
