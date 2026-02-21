@@ -2,7 +2,8 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import asyncpg
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import APIError
@@ -13,7 +14,7 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
-from app.db import close_pool, create_pool, create_table
+from app.db import close_pool, create_pool, create_table, get_db, save_record
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
@@ -60,6 +61,7 @@ async def health_check() -> dict[str, str]:
 @app.post("/api/summarize", response_model=None)
 async def summarize_video(
     request: SummarizeRequest,
+    conn: asyncpg.Connection = Depends(get_db),
 ) -> SummarizeResponse | JSONResponse:
     try:
         video_id = extract_video_id(request.url)
@@ -149,7 +151,24 @@ async def summarize_video(
     except Exception:
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
-    return SummarizeResponse(summary=summary, transcript=full_text, metadata=metadata)
+    # Build response
+    response = SummarizeResponse(summary=summary, transcript=full_text, metadata=metadata)
+
+    # Persist to database — failures must not block the response
+    try:
+        await save_record(
+            conn,
+            video_id=video_id,
+            title=metadata.title if metadata else None,
+            thumbnail_url=metadata.thumbnail_url if metadata else None,
+            summary=summary,
+            transcript=full_text,
+        )
+    except Exception:
+        logger.warning("Failed to persist record for %s", video_id)
+        response.storage_warning = True
+
+    return response
 
 
 @app.post("/api/fallacies", response_model=None)
