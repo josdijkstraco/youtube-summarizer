@@ -225,7 +225,7 @@ async function handleSelectVideo(videoId: string) {
 }
 
 .drawer-toggle--open {
-  transform: translateX(280px);
+  transform: translateX(560px);
 }
 
 .drawer-toggle__icon {
@@ -259,7 +259,7 @@ async function handleSelectVideo(videoId: string) {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 280px;
+  width: 560px;
   z-index: 1000;
   transform: translateX(-100%);
   transition: transform 0.2s ease-out;
