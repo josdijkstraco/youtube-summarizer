@@ -41,6 +41,7 @@ export interface FallacyAnalysisResult {
 
 export interface SummarizeResponse {
   summary: string;
+  transcript: string;
   metadata: VideoMetadata | null;
 }
 

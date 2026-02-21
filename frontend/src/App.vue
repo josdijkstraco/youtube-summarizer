@@ -18,6 +18,7 @@ import ErrorMessage from "@/components/ErrorMessage.vue";
 const loading = ref(false);
 const lengthPercent = ref(25);
 const summary = ref<string | null>(null);
+const transcript = ref<string | null>(null);
 const metadata = ref<VideoMetadata | null>(null);
 const fallacyAnalysis = ref<FallacyAnalysisResult | null>(null);
 const error = ref<ErrorResponse | null>(null);
@@ -28,6 +29,7 @@ const fallacyError = ref<ErrorResponse | null>(null);
 async function handleSubmit(url: string) {
   loading.value = true;
   summary.value = null;
+  transcript.value = null;
   metadata.value = null;
   fallacyAnalysis.value = null;
   error.value = null;
@@ -40,6 +42,7 @@ async function handleSubmit(url: string) {
       lengthPercent.value,
     );
     summary.value = response.summary;
+    transcript.value = response.transcript;
     metadata.value = response.metadata ?? null;
     submittedUrl.value = url;
   } catch (e) {
@@ -90,7 +93,7 @@ function handleRetry() {
     <LengthSlider v-model="lengthPercent" :disabled="loading" />
     <LoadingState v-if="loading" />
     <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
-    <SummaryDisplay v-if="summary" :summary="summary" :metadata="metadata" />
+    <SummaryDisplay v-if="summary" :summary="summary" :transcript="transcript ?? ''" :metadata="metadata" />
     <button
       v-if="summary && !fallacyAnalysis && !fallacyLoading"
       class="analyze-button"

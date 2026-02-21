@@ -246,35 +246,19 @@ class TestFallacyAnalysisResult:
         assert result.fallacies == []
 
 
-class TestSummarizeResponseFallacyField:
-    def test_fallacy_analysis_defaults_to_none(self) -> None:
-        resp = SummarizeResponse(summary="A summary")
-        assert resp.fallacy_analysis is None
+class TestSummarizeResponse:
+    def test_requires_summary_and_transcript(self) -> None:
+        resp = SummarizeResponse(summary="A summary", transcript="Raw text here")
+        assert resp.summary == "A summary"
+        assert resp.transcript == "Raw text here"
+        assert resp.metadata is None
 
-    def test_with_populated_fallacy_analysis(self) -> None:
-        analysis = FallacyAnalysisResult(
-            summary=FallacySummary(
-                total_fallacies=1,
-                high_severity=0,
-                medium_severity=1,
-                low_severity=0,
-                primary_tactics=["Straw Man"],
-            ),
-            fallacies=[
-                Fallacy(
-                    quote="That's not what I said",
-                    fallacy_name="Straw Man",
-                    category="Relevance",
-                    severity="medium",
-                    explanation="Misrepresents the argument.",
-                    clear_example=ClearExample(
-                        scenario="Claiming someone wants no rules",
-                        why_wrong="They only wanted one change",
-                    ),
-                )
-            ],
-        )
-        resp = SummarizeResponse(summary="A summary", fallacy_analysis=analysis)
-        assert resp.fallacy_analysis is not None
-        assert resp.fallacy_analysis.summary.total_fallacies == 1
-        assert resp.fallacy_analysis.fallacies[0].fallacy_name == "Straw Man"
+    def test_with_metadata(self) -> None:
+        meta = VideoMetadata(video_id="abc123")
+        resp = SummarizeResponse(summary="A summary", transcript="Raw text", metadata=meta)
+        assert resp.metadata is not None
+        assert resp.metadata.video_id == "abc123"
+
+    def test_rejects_missing_transcript(self) -> None:
+        with pytest.raises(ValidationError):
+            SummarizeResponse(summary="A summary")  # type: ignore[call-arg]

@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import type { VideoMetadata } from "@/types";
 
 defineProps<{
   summary: string;
+  transcript: string;
   metadata?: VideoMetadata | null;
 }>();
+
+const activeTab = ref<"summary" | "transcript">("summary");
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -37,15 +41,31 @@ function formatDuration(seconds: number): string {
         {{ formatDuration(metadata.duration_seconds) }}
       </p>
     </div>
-    <h2 class="summary-display__heading">Summary</h2>
-    <div class="summary-display__content">
-      <p
-        v-for="(paragraph, index) in summary.split('\n\n')"
-        :key="index"
-        class="summary-display__paragraph"
+    <div class="summary-display__tabs">
+      <button
+        :class="['summary-display__tab', { 'is-active': activeTab === 'summary' }]"
+        @click="activeTab = 'summary'"
       >
-        {{ paragraph }}
-      </p>
+        Summary
+      </button>
+      <button
+        :class="['summary-display__tab', { 'is-active': activeTab === 'transcript' }]"
+        @click="activeTab = 'transcript'"
+      >
+        Transcript
+      </button>
+    </div>
+    <div class="summary-display__content">
+      <template v-if="activeTab === 'summary'">
+        <p
+          v-for="(paragraph, index) in summary.split('\n\n')"
+          :key="index"
+          class="summary-display__paragraph"
+        >
+          {{ paragraph }}
+        </p>
+      </template>
+      <p v-else class="summary-display__transcript">{{ transcript }}</p>
     </div>
   </div>
 </template>
@@ -91,11 +111,33 @@ function formatDuration(seconds: number): string {
   color: #a0aec0;
 }
 
-.summary-display__heading {
-  margin: 0 0 1rem;
-  font-size: 1.25rem;
-  font-weight: 600;
+.summary-display__tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.summary-display__tab {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #718096;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.summary-display__tab:hover {
   color: #2d3748;
+}
+
+.summary-display__tab.is-active {
+  color: #2d3748;
+  border-bottom-color: #2d3748;
 }
 
 .summary-display__content {
@@ -110,5 +152,12 @@ function formatDuration(seconds: number): string {
 
 .summary-display__paragraph:last-child {
   margin-bottom: 0;
+}
+
+.summary-display__transcript {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.7;
 }
 </style>

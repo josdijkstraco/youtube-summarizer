@@ -69,6 +69,7 @@ class FallacyAnalysisRequest(BaseModel):
 
 class SummarizeResponse(BaseModel):
     summary: str
+    transcript: str
     metadata: VideoMetadata | None = None
 
 

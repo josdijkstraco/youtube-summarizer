@@ -134,7 +134,7 @@ async def summarize_video(
     except Exception:
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
-    return SummarizeResponse(summary=summary, metadata=metadata)
+    return SummarizeResponse(summary=summary, transcript=full_text, metadata=metadata)
 
 
 @app.post("/api/fallacies", response_model=None)
