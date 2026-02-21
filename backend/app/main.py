@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import asyncpg
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import APIError
@@ -14,11 +14,12 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
-from app.db import close_pool, create_pool, create_table, get_db, save_record
+from app.db import close_pool, create_pool, create_table, get_db, list_recent, save_record
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
     FallacyAnalysisResult,
+    HistoryResponse,
     SummarizeRequest,
     SummarizeResponse,
     VideoMetadata,
@@ -56,6 +57,15 @@ app.add_middleware(
 @app.get("/api/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/history")
+async def get_history(
+    limit: int = Query(default=50, ge=1, le=100),
+    conn: asyncpg.Connection = Depends(get_db),
+) -> HistoryResponse:
+    items = await list_recent(conn, limit)
+    return HistoryResponse(items=items)
 
 
 @app.post("/api/summarize", response_model=None)
