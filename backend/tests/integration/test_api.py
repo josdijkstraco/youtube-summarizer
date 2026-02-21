@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import asyncpg
@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.db import get_db
 from app.main import app
+from app.models import VideoRecord
 
 client = TestClient(app)
 
@@ -646,6 +647,8 @@ class TestSummarizeStorageWarning:
 
         # Mock DB connection where save_record raises (DB unavailable)
         mock_conn = AsyncMock(spec=asyncpg.Connection)
+        # fetchrow returns None so the cache-check finds no existing record
+        mock_conn.fetchrow.return_value = None
         mock_conn.execute.side_effect = Exception("DB connection refused")
 
         async def override_get_db():
@@ -664,3 +667,54 @@ class TestSummarizeStorageWarning:
         data = response.json()
         assert "summary" in data
         assert data.get("storage_warning") is True
+
+
+# ---------------------------------------------------------------------------
+# US2: cache-hit path integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeCacheHit:
+    """Integration tests for the cache-hit path on POST /api/summarize (US2)."""
+
+    def test_summarize_returns_cached_result_without_reprocessing(self) -> None:
+        """When a video_id already exists in the DB, the stored result is returned
+        immediately. Transcript and summarize services must NOT be called."""
+        fake_record = VideoRecord(
+            id=1,
+            video_id=_FAKE_VIDEO_ID,
+            title="Cached Title",
+            thumbnail_url=f"https://i.ytimg.com/vi/{_FAKE_VIDEO_ID}/hqdefault.jpg",
+            summary="Cached summary",
+            transcript="Cached transcript",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+
+        async def override_get_db():
+            mock_conn = AsyncMock()
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            with (
+                patch(
+                    "app.main.get_by_video_id",
+                    new_callable=AsyncMock,
+                    return_value=fake_record,
+                ),
+                patch("app.main.get_transcript") as mock_transcript,
+                patch("app.main.generate_summary") as mock_summarize,
+            ):
+                response = client.post(
+                    "/api/summarize",
+                    json={"url": f"https://www.youtube.com/watch?v={_FAKE_VIDEO_ID}"},
+                )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["summary"] == "Cached summary"
+            assert data["transcript"] == "Cached transcript"
+            mock_transcript.assert_not_called()
+            mock_summarize.assert_not_called()
+        finally:
+            app.dependency_overrides.pop(get_db, None)
