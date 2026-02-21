@@ -1,4 +1,6 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
+from app.db import close_pool, create_pool, create_table
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
@@ -26,7 +29,19 @@ from app.services.youtube import extract_video_id, get_video_metadata
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="YouTube Video Summarizer API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.pool = await create_pool(str(settings.database_url))
+    async with app.state.pool.acquire() as conn:
+        await create_table(conn)
+    try:
+        yield
+    finally:
+        await close_pool(app.state.pool)
+
+
+app = FastAPI(title="YouTube Video Summarizer API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
