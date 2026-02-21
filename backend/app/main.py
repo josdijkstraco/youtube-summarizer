@@ -14,7 +14,7 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
-from app.db import close_pool, create_pool, create_table, get_by_video_id, get_db, list_recent, save_record
+from app.db import close_pool, create_pool, create_table, get_by_video_id, get_db, get_full_record, list_recent, save_record
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
@@ -23,6 +23,7 @@ from app.models import (
     SummarizeRequest,
     SummarizeResponse,
     VideoMetadata,
+    VideoRecord,
 )
 from app.services.fallacy_analyzer import analyze_fallacies
 from app.services.summarizer import generate_summary
@@ -66,6 +67,23 @@ async def get_history(
 ) -> HistoryResponse:
     items = await list_recent(conn, limit)
     return HistoryResponse(items=items)
+
+
+@app.get("/api/history/{video_id}", response_model=None)
+async def get_history_item(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),
+) -> VideoRecord | JSONResponse:
+    record = await get_full_record(conn, video_id)
+    if record is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No stored record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return record
 
 
 @app.post("/api/summarize", response_model=None)
