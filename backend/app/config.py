@@ -1,8 +1,10 @@
+from pydantic import PostgresDsn
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     openai_api_key: str = ""
+    database_url: PostgresDsn
     backend_cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
