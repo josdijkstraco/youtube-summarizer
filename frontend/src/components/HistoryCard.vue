@@ -1,0 +1,76 @@
+<script setup lang="ts">
+import type { HistoryItem } from "@/types";
+
+defineProps<{ item: HistoryItem }>();
+</script>
+
+<template>
+  <div class="history-card">
+    <img
+      v-if="item.thumbnail_url"
+      :src="item.thumbnail_url"
+      :alt="item.title ?? 'Video thumbnail'"
+      class="history-card__thumb"
+      width="80"
+      height="45"
+      @error="($event.target as HTMLImageElement).style.display = 'none'"
+    />
+    <div class="history-card__body">
+      <a
+        :href="`https://www.youtube.com/watch?v=${item.video_id}`"
+        target="_blank"
+        rel="noopener"
+        class="history-card__title"
+      >{{ item.title ?? item.video_id }}</a>
+      <p class="history-card__summary">{{ item.summary }}</p>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.history-card {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.history-card__thumb {
+  flex-shrink: 0;
+  width: 80px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.history-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-card__title {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a202c;
+  text-decoration: none;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.history-card__title:hover {
+  text-decoration: underline;
+}
+
+.history-card__summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #718096;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+</style>
