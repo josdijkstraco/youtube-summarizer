@@ -3,7 +3,7 @@ from collections.abc import AsyncGenerator
 import asyncpg
 from fastapi import Request
 
-from backend.app.models import HistoryItem, VideoRecord
+from app.models import HistoryItem, VideoRecord
 
 
 async def create_pool(dsn: str) -> asyncpg.Pool:
