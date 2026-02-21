@@ -718,3 +718,65 @@ class TestSummarizeCacheHit:
             mock_summarize.assert_not_called()
         finally:
             app.dependency_overrides.pop(get_db, None)
+
+
+# ---------------------------------------------------------------------------
+# US3: GET /api/history/{video_id} integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetHistoryItemEndpoint:
+    """Integration tests for GET /api/history/{video_id} (US3)."""
+
+    def test_get_history_item_returns_full_record_with_transcript(self) -> None:
+        """GET /api/history/{video_id} returns the full record including transcript."""
+        fake_record = VideoRecord(
+            id=1,
+            video_id=_FAKE_VIDEO_ID,
+            title="Full Record Title",
+            thumbnail_url="https://example.com/thumb.jpg",
+            summary="Full summary",
+            transcript="Full transcript content",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        )
+
+        def override_get_db():
+            mock_conn = AsyncMock()
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with patch(
+                "app.main.get_full_record",
+                new_callable=AsyncMock,
+                return_value=fake_record,
+            ):
+                response = client.get(f"/api/history/{_FAKE_VIDEO_ID}")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["transcript"] == "Full transcript content"
+            assert data["summary"] == "Full summary"
+            assert data["video_id"] == _FAKE_VIDEO_ID
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+    def test_get_history_item_returns_404_for_unknown_video_id(self) -> None:
+        """GET /api/history/{video_id} returns 404 when video_id not in storage."""
+
+        def override_get_db():
+            mock_conn = AsyncMock()
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with patch(
+                "app.main.get_full_record",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                response = client.get("/api/history/unknownvideo1")
+            assert response.status_code == 404
+            data = response.json()
+            assert data["error"] == "not_found"
+        finally:
+            app.dependency_overrides.pop(get_db, None)
