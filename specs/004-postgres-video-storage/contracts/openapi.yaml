@@ -1,0 +1,230 @@
+openapi: "3.1.0"
+info:
+  title: YouTube Summarizer API — Postgres Video Storage additions
+  description: |
+    Describes the API changes introduced by feature 004-postgres-video-storage.
+    Existing endpoints (/api/summarize, /api/fallacies, /api/health) are unchanged
+    in their request/response contracts; the summarize endpoint gains a database
+    side-effect (persist on success) but its schema is unmodified.
+  version: "1.1.0"
+
+paths:
+
+  /api/history:
+    get:
+      operationId: getHistory
+      summary: List recently processed videos
+      description: |
+        Returns the most recent processed video records in reverse chronological
+        order (newest first). Does not include transcript text to keep payloads
+        small. Use GET /api/history/{video_id} to retrieve the full transcript.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of records to return.
+      responses:
+        "200":
+          description: History retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryResponse"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/history/{video_id}:
+    get:
+      operationId: getHistoryItem
+      summary: Retrieve a single stored video record including transcript
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]{11}$"
+          description: YouTube video ID (11-character string).
+      responses:
+        "200":
+          description: Record found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VideoRecord"
+        "404":
+          description: No record found for this video_id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/summarize:
+    post:
+      operationId: summarizeVideo
+      summary: Summarize a YouTube video (unchanged contract; gains DB persistence side-effect)
+      description: |
+        Existing endpoint. Behaviour change introduced by this feature:
+        1. Before processing, the system checks whether the video_id already exists
+           in storage. If found, the stored summary and transcript are returned
+           immediately (cache hit).
+        2. On successful processing, the result is persisted to the database.
+           If persistence fails, the response is still returned to the caller
+           with a `storage_warning` field set to true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SummarizeRequest"
+      responses:
+        "200":
+          description: Summary generated or retrieved from cache.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummarizeResponse"
+        "400":
+          description: Invalid URL or unsupported format.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Video or transcript not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream service (OpenAI) unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+
+    HistoryItem:
+      type: object
+      required: [video_id, summary, created_at]
+      properties:
+        video_id:
+          type: string
+          description: YouTube video ID
+          example: "dQw4w9WgXcQ"
+        title:
+          type: [string, "null"]
+          description: Video title, null if metadata was unavailable
+        thumbnail_url:
+          type: [string, "null"]
+          format: uri
+          description: YouTube CDN thumbnail URL, null if metadata was unavailable
+        summary:
+          type: string
+          description: Generated summary text
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of first processing
+
+    HistoryResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryItem"
+
+    VideoRecord:
+      allOf:
+        - $ref: "#/components/schemas/HistoryItem"
+        - type: object
+          required: [transcript]
+          properties:
+            transcript:
+              type: string
+              description: Full raw transcript text
+
+    SummarizeRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: YouTube video URL
+        length_percent:
+          type: integer
+          minimum: 10
+          maximum: 50
+          multipleOf: 5
+          default: 25
+          description: Target summary length as percentage of transcript word count
+
+    SummarizeResponse:
+      type: object
+      required: [summary, transcript]
+      properties:
+        summary:
+          type: string
+        transcript:
+          type: string
+        metadata:
+          oneOf:
+            - $ref: "#/components/schemas/VideoMetadata"
+            - type: "null"
+        storage_warning:
+          type: boolean
+          default: false
+          description: |
+            True when the result was generated successfully but could not be
+            persisted to the database. The response is still valid; the caller
+            should surface this as a non-blocking informational message.
+
+    VideoMetadata:
+      type: object
+      required: [video_id]
+      properties:
+        video_id:
+          type: string
+        title:
+          type: [string, "null"]
+        channel_name:
+          type: [string, "null"]
+        duration_seconds:
+          type: [integer, "null"]
+        thumbnail_url:
+          type: [string, "null"]
+          format: uri
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          example: "video_not_found"
+        message:
+          type: string
+          description: Human-readable error description
+        details:
+          type: [string, "null"]
+          description: Optional additional context

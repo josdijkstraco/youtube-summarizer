@@ -2,7 +2,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,7 +14,16 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
-from app.db import close_pool, create_pool, create_table, get_by_video_id, get_db, get_full_record, list_recent, save_record
+from app.db import (
+    close_pool,
+    create_pool,
+    create_table,
+    get_by_video_id,
+    get_db,
+    get_full_record,
+    list_recent,
+    save_record,
+)
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
@@ -63,7 +72,7 @@ async def health_check() -> dict[str, str]:
 @app.get("/api/history")
 async def get_history(
     limit: int = Query(default=50, ge=1, le=100),
-    conn: asyncpg.Connection = Depends(get_db),
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
 ) -> HistoryResponse:
     items = await list_recent(conn, limit)
     return HistoryResponse(items=items)
@@ -72,7 +81,7 @@ async def get_history(
 @app.get("/api/history/{video_id}", response_model=None)
 async def get_history_item(
     video_id: str,
-    conn: asyncpg.Connection = Depends(get_db),
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
 ) -> VideoRecord | JSONResponse:
     record = await get_full_record(conn, video_id)
     if record is None:
@@ -89,7 +98,7 @@ async def get_history_item(
 @app.post("/api/summarize", response_model=None)
 async def summarize_video(
     request: SummarizeRequest,
-    conn: asyncpg.Connection = Depends(get_db),
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
 ) -> SummarizeResponse | JSONResponse:
     try:
         video_id = extract_video_id(request.url)
@@ -195,7 +204,9 @@ async def summarize_video(
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
     # Build response
-    response = SummarizeResponse(summary=summary, transcript=full_text, metadata=metadata)
+    response = SummarizeResponse(
+        summary=summary, transcript=full_text, metadata=metadata
+    )
 
     # Persist to database — failures must not block the response
     try:
@@ -275,7 +286,9 @@ async def analyze_video_fallacies(
             status_code=502,
             content=ErrorResponse(
                 error="analysis_failed",
-                message="Unable to analyze fallacies at this time. Please try again later.",
+                message=(
+                    "Unable to analyze fallacies at this time. Please try again later."
+                ),
             ).model_dump(),
         )
 

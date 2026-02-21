@@ -1,6 +1,6 @@
 from collections.abc import AsyncGenerator
 
-import asyncpg
+import asyncpg  # type: ignore[import-untyped]
 from fastapi import Request
 
 from app.models import HistoryItem, VideoRecord
@@ -22,7 +22,7 @@ async def get_db(request: Request) -> AsyncGenerator[asyncpg.Connection, None]:
 async def create_table(conn: asyncpg.Connection) -> None:
     await conn.execute(
         """
-        CREATE TABLE IF NOT EXISTS summaries (
+        CREATE TABLE IF NOT EXISTS youtube_summarizer.summaries (
             id            BIGSERIAL    PRIMARY KEY,
             video_id      TEXT         NOT NULL UNIQUE,
             title         TEXT,
@@ -45,7 +45,7 @@ async def save_record(
 ) -> VideoRecord:
     # Step 1: try insert (silently skip if conflict)
     await conn.execute(
-        "INSERT INTO summaries (video_id, title, thumbnail_url, summary, transcript) "
+        "INSERT INTO youtube_summarizer.summaries (video_id, title, thumbnail_url, summary, transcript) "
         "VALUES ($1, $2, $3, $4, $5) ON CONFLICT (video_id) DO NOTHING",
         video_id,
         title,
@@ -54,14 +54,14 @@ async def save_record(
         transcript,
     )
     # Step 2: always fetch (inserted or existing)
-    row = await conn.fetchrow("SELECT * FROM summaries WHERE video_id = $1", video_id)
+    row = await conn.fetchrow("SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id)
     return VideoRecord(**dict(row))
 
 
 async def get_by_video_id(
     conn: asyncpg.Connection, video_id: str
 ) -> VideoRecord | None:
-    row = await conn.fetchrow("SELECT * FROM summaries WHERE video_id = $1", video_id)
+    row = await conn.fetchrow("SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id)
     if row is None:
         return None
     return VideoRecord(**dict(row))
@@ -70,7 +70,7 @@ async def get_by_video_id(
 async def list_recent(conn: asyncpg.Connection, limit: int) -> list[HistoryItem]:
     rows = await conn.fetch(
         "SELECT video_id, title, thumbnail_url, summary, created_at "
-        "FROM summaries ORDER BY created_at DESC LIMIT $1",
+        "FROM youtube_summarizer.summaries ORDER BY created_at DESC LIMIT $1",
         limit,
     )
     return [HistoryItem(**dict(row)) for row in rows]
@@ -79,7 +79,7 @@ async def list_recent(conn: asyncpg.Connection, limit: int) -> list[HistoryItem]
 async def get_full_record(
     conn: asyncpg.Connection, video_id: str
 ) -> VideoRecord | None:
-    row = await conn.fetchrow("SELECT * FROM summaries WHERE video_id = $1", video_id)
+    row = await conn.fetchrow("SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id)
     if row is None:
         return None
     return VideoRecord(**dict(row))

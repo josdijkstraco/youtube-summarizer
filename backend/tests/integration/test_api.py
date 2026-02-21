@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import asyncpg
@@ -687,7 +687,7 @@ class TestSummarizeCacheHit:
             thumbnail_url=f"https://i.ytimg.com/vi/{_FAKE_VIDEO_ID}/hqdefault.jpg",
             summary="Cached summary",
             transcript="Cached transcript",
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
         async def override_get_db():
@@ -737,7 +737,7 @@ class TestGetHistoryItemEndpoint:
             thumbnail_url="https://example.com/thumb.jpg",
             summary="Full summary",
             transcript="Full transcript content",
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
         def override_get_db():
