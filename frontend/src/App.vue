@@ -14,6 +14,7 @@ import SummaryDisplay from "@/components/SummaryDisplay.vue";
 import FallacyDisplay from "@/components/FallacyDisplay.vue";
 import FallacySummaryPanel from "@/components/FallacySummaryPanel.vue";
 import ErrorMessage from "@/components/ErrorMessage.vue";
+import HistoryPanel from "@/components/HistoryPanel.vue";
 
 const loading = ref(false);
 const lengthPercent = ref(25);
@@ -25,6 +26,7 @@ const error = ref<ErrorResponse | null>(null);
 const fallacyLoading = ref(false);
 const submittedUrl = ref<string | null>(null);
 const fallacyError = ref<ErrorResponse | null>(null);
+const historyPanelRef = ref<InstanceType<typeof HistoryPanel> | null>(null);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -45,6 +47,7 @@ async function handleSubmit(url: string) {
     transcript.value = response.transcript;
     metadata.value = response.metadata ?? null;
     submittedUrl.value = url;
+    historyPanelRef.value?.reload();
   } catch (e) {
     if (e instanceof ApiError) {
       error.value = e.errorResponse;
@@ -88,41 +91,43 @@ function handleRetry() {
 
 <template>
   <div id="app">
-    <h1>YouTube Summarizer</h1>
-    <UrlInput :loading="loading" @submit="handleSubmit" />
-    <LengthSlider v-model="lengthPercent" :disabled="loading" />
-    <LoadingState v-if="loading" />
-    <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
-    <SummaryDisplay v-if="summary" :summary="summary" :transcript="transcript ?? ''" :metadata="metadata" />
-    <button
-      v-if="summary && !fallacyAnalysis && !fallacyLoading"
-      class="analyze-button"
-      @click="handleAnalyzeFallacies"
-    >
-      Analyze for Logical Fallacies
-    </button>
-    <LoadingState v-if="fallacyLoading" />
-    <ErrorMessage
-      v-if="fallacyError"
-      :error="fallacyError"
-      @retry="() => { fallacyError = null; }"
-    />
-    <FallacySummaryPanel
-      v-if="fallacyAnalysis"
-      :summary="fallacyAnalysis.summary"
-    />
-    <FallacyDisplay
-      v-if="fallacyAnalysis"
-      :fallacies="fallacyAnalysis.fallacies"
-    />
+    <HistoryPanel ref="historyPanelRef" />
+    <main class="app-main">
+      <h1>YouTube Summarizer</h1>
+      <UrlInput :loading="loading" @submit="handleSubmit" />
+      <LengthSlider v-model="lengthPercent" :disabled="loading" />
+      <LoadingState v-if="loading" />
+      <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
+      <SummaryDisplay v-if="summary" :summary="summary" :transcript="transcript ?? ''" :metadata="metadata" />
+      <button
+        v-if="summary && !fallacyAnalysis && !fallacyLoading"
+        class="analyze-button"
+        @click="handleAnalyzeFallacies"
+      >
+        Analyze for Logical Fallacies
+      </button>
+      <LoadingState v-if="fallacyLoading" />
+      <ErrorMessage
+        v-if="fallacyError"
+        :error="fallacyError"
+        @retry="() => { fallacyError = null; }"
+      />
+      <FallacySummaryPanel
+        v-if="fallacyAnalysis"
+        :summary="fallacyAnalysis.summary"
+      />
+      <FallacyDisplay
+        v-if="fallacyAnalysis"
+        :fallacies="fallacyAnalysis.fallacies"
+      />
+    </main>
   </div>
 </template>
 
 <style scoped>
 #app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 280px 1fr;
   gap: 1.5rem;
   padding: 2rem 1rem;
   min-height: 100vh;
@@ -130,6 +135,20 @@ function handleRetry() {
     system-ui,
     -apple-system,
     sans-serif;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  #app {
+    grid-template-columns: 1fr;
+  }
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 h1 {
