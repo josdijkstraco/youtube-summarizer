@@ -32,6 +32,7 @@ const fallacyLoading = ref(false);
 const submittedUrl = ref<string | null>(null);
 const fallacyError = ref<ErrorResponse | null>(null);
 const historyPanelRef = ref<InstanceType<typeof HistoryPanel> | null>(null);
+const drawerOpen = ref(false);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -94,6 +95,7 @@ function handleRetry() {
 }
 
 async function handleSelectVideo(videoId: string) {
+  drawerOpen.value = false;
   loading.value = true;
   summary.value = null;
   transcript.value = null;
@@ -132,7 +134,23 @@ async function handleSelectVideo(videoId: string) {
 
 <template>
   <div id="app">
-    <HistoryPanel ref="historyPanelRef" @select-video="handleSelectVideo" />
+    <button
+      aria-label="Toggle history"
+      class="drawer-toggle"
+      :class="{ 'drawer-toggle--open': drawerOpen }"
+      @click="drawerOpen = !drawerOpen"
+    >
+      <span class="drawer-toggle__icon">{{ drawerOpen ? "←" : "→" }}</span>
+      <span class="drawer-toggle__label">History</span>
+    </button>
+    <div
+      class="drawer-overlay"
+      :class="{ 'drawer-overlay--visible': drawerOpen }"
+      @click="drawerOpen = false"
+    ></div>
+    <div class="drawer" :class="{ 'drawer--open': drawerOpen }">
+      <HistoryPanel ref="historyPanelRef" @select-video="handleSelectVideo" />
+    </div>
     <main class="app-main">
       <h1>YouTube Summarizer</h1>
       <UrlInput :loading="loading" @submit="handleSubmit" />
@@ -177,7 +195,7 @@ async function handleSelectVideo(videoId: string) {
 <style scoped>
 #app {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 1fr;
   gap: 1.5rem;
   padding: 2rem 1rem;
   min-height: 100vh;
@@ -188,9 +206,75 @@ async function handleSelectVideo(videoId: string) {
   align-items: start;
 }
 
-@media (max-width: 768px) {
-  #app {
-    grid-template-columns: 1fr;
+.drawer-toggle {
+  position: fixed;
+  left: 0;
+  top: 1rem;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.drawer-toggle--open {
+  transform: translateX(280px);
+}
+
+.drawer-toggle__icon {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.drawer-toggle__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.drawer-overlay--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease-out;
+  padding: 1rem;
+  padding-top: 3.5rem;
+  overflow-y: auto;
+}
+
+.drawer--open {
+  transform: translateX(0);
+}
+
+@media (min-width: 769px) {
+  .drawer-overlay {
+    display: none;
   }
 }
 

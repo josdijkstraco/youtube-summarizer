@@ -57,9 +57,7 @@ const emit = defineEmits<{ selectVideo: [videoId: string] }>();
 
 <style scoped>
 .history-panel {
-  position: sticky;
-  top: 1rem;
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - 4rem);
   overflow-y: auto;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -73,8 +71,6 @@ const emit = defineEmits<{ selectVideo: [videoId: string] }>();
   margin: 0;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
   background: #fff;
 }
 
