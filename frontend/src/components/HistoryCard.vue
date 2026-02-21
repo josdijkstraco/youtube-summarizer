@@ -2,6 +2,7 @@
 import type { HistoryItem } from "@/types";
 
 defineProps<{ item: HistoryItem }>();
+const emit = defineEmits<{ select: [videoId: string] }>();
 </script>
 
 <template>
@@ -21,8 +22,15 @@ defineProps<{ item: HistoryItem }>();
         target="_blank"
         rel="noopener"
         class="history-card__title"
-      >{{ item.title ?? item.video_id }}</a>
+        >{{ item.title ?? item.video_id }}</a
+      >
       <p class="history-card__summary">{{ item.summary }}</p>
+      <button
+        class="history-card__view-btn"
+        @click.stop="emit('select', item.video_id)"
+      >
+        View
+      </button>
     </div>
   </div>
 </template>
@@ -72,5 +80,20 @@ defineProps<{ item: HistoryItem }>();
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+.history-card__view-btn {
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.history-card__view-btn:hover {
+  background: #2c5282;
 }
 </style>

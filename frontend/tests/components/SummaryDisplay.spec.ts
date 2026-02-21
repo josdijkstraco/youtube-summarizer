@@ -14,7 +14,7 @@ describe("SummaryDisplay", () => {
 
   it("renders summary text", () => {
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "This is a test summary." },
+      props: { summary: "This is a test summary.", transcript: "Full transcript" },
     });
 
     expect(wrapper.text()).toContain("This is a test summary.");
@@ -22,7 +22,7 @@ describe("SummaryDisplay", () => {
 
   it("renders multiple paragraphs split by double newlines", () => {
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Paragraph one.\n\nParagraph two." },
+      props: { summary: "Paragraph one.\n\nParagraph two.", transcript: "Full transcript" },
     });
 
     const paragraphs = wrapper.findAll(".summary-display__paragraph");
@@ -31,17 +31,18 @@ describe("SummaryDisplay", () => {
     expect(paragraphs[1].text()).toBe("Paragraph two.");
   });
 
-  it("renders Summary heading", () => {
+  it("renders Summary tab", () => {
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Some text" },
+      props: { summary: "Some text", transcript: "Full transcript" },
     });
 
-    expect(wrapper.find(".summary-display__heading").text()).toBe("Summary");
+    const summaryTab = wrapper.findAll(".summary-display__tab")[0];
+    expect(summaryTab.text()).toBe("Summary");
   });
 
   it("renders all metadata fields when provided", () => {
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata: fullMetadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata: fullMetadata },
     });
 
     expect(wrapper.find(".summary-display__title").text()).toBe(
@@ -62,7 +63,7 @@ describe("SummaryDisplay", () => {
 
   it("hides metadata section when metadata is null", () => {
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata: null },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata: null },
     });
 
     expect(wrapper.find(".summary-display__meta").exists()).toBe(false);
@@ -70,7 +71,7 @@ describe("SummaryDisplay", () => {
 
   it("hides metadata section when metadata is not provided", () => {
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text" },
+      props: { summary: "Summary text", transcript: "Full transcript" },
     });
 
     expect(wrapper.find(".summary-display__meta").exists()).toBe(false);
@@ -82,7 +83,7 @@ describe("SummaryDisplay", () => {
       title: null,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     expect(wrapper.find(".summary-display__title").exists()).toBe(false);
@@ -94,7 +95,7 @@ describe("SummaryDisplay", () => {
       channel_name: null,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     expect(wrapper.find(".summary-display__channel").exists()).toBe(false);
@@ -106,7 +107,7 @@ describe("SummaryDisplay", () => {
       duration_seconds: null,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     expect(wrapper.find(".summary-display__duration").exists()).toBe(false);
@@ -118,7 +119,7 @@ describe("SummaryDisplay", () => {
       thumbnail_url: null,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     expect(wrapper.find(".summary-display__thumbnail").exists()).toBe(false);
@@ -130,7 +131,7 @@ describe("SummaryDisplay", () => {
       duration_seconds: 7323,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     // 7323 = 2h 2m 3s → "2:02:03"
@@ -143,7 +144,7 @@ describe("SummaryDisplay", () => {
       duration_seconds: 65,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     // 65 = 1m 5s → "1:05"
@@ -156,7 +157,7 @@ describe("SummaryDisplay", () => {
       title: null,
     };
     const wrapper = mount(SummaryDisplay, {
-      props: { summary: "Summary text", metadata },
+      props: { summary: "Summary text", transcript: "Full transcript", metadata },
     });
 
     const img = wrapper.find(".summary-display__thumbnail");

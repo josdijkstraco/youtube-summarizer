@@ -24,6 +24,7 @@ async function loadHistory(): Promise<void> {
 onMounted(loadHistory);
 
 defineExpose({ reload: loadHistory });
+const emit = defineEmits<{ selectVideo: [videoId: string] }>();
 </script>
 
 <template>
@@ -34,7 +35,10 @@ defineExpose({ reload: loadHistory });
       Loading history...
     </div>
 
-    <div v-else-if="historyError" class="history-panel__status history-panel__status--error">
+    <div
+      v-else-if="historyError"
+      class="history-panel__status history-panel__status--error"
+    >
       {{ historyError }}
       <button class="history-panel__retry" @click="loadHistory">Retry</button>
     </div>
@@ -45,7 +49,7 @@ defineExpose({ reload: loadHistory });
 
     <ul v-else class="history-panel__list">
       <li v-for="item in historyItems" :key="item.video_id">
-        <HistoryCard :item="item" />
+        <HistoryCard :item="item" @select="emit('selectVideo', $event)" />
       </li>
     </ul>
   </aside>

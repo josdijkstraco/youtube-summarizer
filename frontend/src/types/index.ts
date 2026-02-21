@@ -63,3 +63,13 @@ export interface HistoryItem {
 export interface HistoryResponse {
   items: HistoryItem[];
 }
+
+export interface VideoRecord {
+  id: number;
+  video_id: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  summary: string;
+  transcript: string;
+  created_at: string;
+}

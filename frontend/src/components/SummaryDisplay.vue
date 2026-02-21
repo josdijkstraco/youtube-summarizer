@@ -43,13 +43,19 @@ function formatDuration(seconds: number): string {
     </div>
     <div class="summary-display__tabs">
       <button
-        :class="['summary-display__tab', { 'is-active': activeTab === 'summary' }]"
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'summary' },
+        ]"
         @click="activeTab = 'summary'"
       >
         Summary
       </button>
       <button
-        :class="['summary-display__tab', { 'is-active': activeTab === 'transcript' }]"
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'transcript' },
+        ]"
         @click="activeTab = 'transcript'"
       >
         Transcript
@@ -128,7 +134,9 @@ function formatDuration(seconds: number): string {
   font-weight: 500;
   color: #718096;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .summary-display__tab:hover {

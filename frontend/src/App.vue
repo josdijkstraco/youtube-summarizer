@@ -6,7 +6,12 @@ import type {
   VideoMetadata,
   FallacyAnalysisResult,
 } from "@/types";
-import { summarizeVideo, analyzeFallacies, ApiError } from "@/services/api";
+import {
+  summarizeVideo,
+  analyzeFallacies,
+  fetchHistoryItem,
+  ApiError,
+} from "@/services/api";
 import UrlInput from "@/components/UrlInput.vue";
 import LengthSlider from "@/components/LengthSlider.vue";
 import LoadingState from "@/components/LoadingState.vue";
@@ -87,18 +92,59 @@ async function handleAnalyzeFallacies() {
 function handleRetry() {
   error.value = null;
 }
+
+async function handleSelectVideo(videoId: string) {
+  loading.value = true;
+  summary.value = null;
+  transcript.value = null;
+  metadata.value = null;
+  fallacyAnalysis.value = null;
+  error.value = null;
+  fallacyError.value = null;
+  submittedUrl.value = `https://www.youtube.com/watch?v=${videoId}`;
+
+  try {
+    const record = await fetchHistoryItem(videoId);
+    summary.value = record.summary;
+    transcript.value = record.transcript;
+    metadata.value = {
+      video_id: record.video_id,
+      title: record.title,
+      thumbnail_url: record.thumbnail_url,
+      channel_name: null,
+      duration_seconds: null,
+    };
+  } catch (e) {
+    if (e instanceof ApiError) {
+      error.value = e.errorResponse;
+    } else {
+      error.value = {
+        error: "internal_error",
+        message: "An unexpected error occurred. Please try again.",
+        details: null,
+      };
+    }
+  } finally {
+    loading.value = false;
+  }
+}
 </script>
 
 <template>
   <div id="app">
-    <HistoryPanel ref="historyPanelRef" />
+    <HistoryPanel ref="historyPanelRef" @select-video="handleSelectVideo" />
     <main class="app-main">
       <h1>YouTube Summarizer</h1>
       <UrlInput :loading="loading" @submit="handleSubmit" />
       <LengthSlider v-model="lengthPercent" :disabled="loading" />
       <LoadingState v-if="loading" />
       <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
-      <SummaryDisplay v-if="summary" :summary="summary" :transcript="transcript ?? ''" :metadata="metadata" />
+      <SummaryDisplay
+        v-if="summary"
+        :summary="summary"
+        :transcript="transcript ?? ''"
+        :metadata="metadata"
+      />
       <button
         v-if="summary && !fallacyAnalysis && !fallacyLoading"
         class="analyze-button"
@@ -110,7 +156,11 @@ function handleRetry() {
       <ErrorMessage
         v-if="fallacyError"
         :error="fallacyError"
-        @retry="() => { fallacyError = null; }"
+        @retry="
+          () => {
+            fallacyError = null;
+          }
+        "
       />
       <FallacySummaryPanel
         v-if="fallacyAnalysis"
