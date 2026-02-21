@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -71,9 +73,32 @@ class SummarizeResponse(BaseModel):
     summary: str
     transcript: str
     metadata: VideoMetadata | None = None
+    storage_warning: bool = False
 
 
 class ErrorResponse(BaseModel):
     error: str
     message: str
     details: str | None = None
+
+
+class VideoRecord(BaseModel):
+    id: int
+    video_id: str
+    title: str | None
+    thumbnail_url: str | None
+    summary: str
+    transcript: str
+    created_at: datetime
+
+
+class HistoryItem(BaseModel):
+    video_id: str
+    title: str | None
+    thumbnail_url: str | None
+    summary: str
+    created_at: datetime
+
+
+class HistoryResponse(BaseModel):
+    items: list[HistoryItem]
