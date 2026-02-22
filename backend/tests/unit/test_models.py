@@ -255,7 +255,9 @@ class TestSummarizeResponse:
 
     def test_with_metadata(self) -> None:
         meta = VideoMetadata(video_id="abc123")
-        resp = SummarizeResponse(summary="A summary", transcript="Raw text", metadata=meta)
+        resp = SummarizeResponse(
+            summary="A summary", transcript="Raw text", metadata=meta
+        )
         assert resp.metadata is not None
         assert resp.metadata.video_id == "abc123"
 

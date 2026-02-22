@@ -1,6 +1,9 @@
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import asyncpg  # type: ignore[import-untyped]
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import APIError
@@ -11,13 +14,27 @@ from youtube_transcript_api._errors import (
 )
 
 from app.config import settings
+from app.db import (
+    close_pool,
+    create_pool,
+    create_table,
+    get_by_video_id,
+    get_db,
+    get_fallacy_analysis,
+    get_full_record,
+    list_recent,
+    save_fallacy_analysis,
+    save_record,
+)
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
     FallacyAnalysisResult,
+    HistoryResponse,
     SummarizeRequest,
     SummarizeResponse,
     VideoMetadata,
+    VideoRecord,
 )
 from app.services.fallacy_analyzer import analyze_fallacies
 from app.services.summarizer import generate_summary
@@ -26,7 +43,19 @@ from app.services.youtube import extract_video_id, get_video_metadata
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="YouTube Video Summarizer API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.pool = await create_pool(str(settings.database_url))
+    async with app.state.pool.acquire() as conn:
+        await create_table(conn)
+    try:
+        yield
+    finally:
+        await close_pool(app.state.pool)
+
+
+app = FastAPI(title="YouTube Video Summarizer API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,9 +71,36 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/history")
+async def get_history(
+    limit: int = Query(default=50, ge=1, le=100),
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> HistoryResponse:
+    items = await list_recent(conn, limit)
+    return HistoryResponse(items=items)
+
+
+@app.get("/api/history/{video_id}", response_model=None)
+async def get_history_item(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> VideoRecord | JSONResponse:
+    record = await get_full_record(conn, video_id)
+    if record is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No stored record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return record
+
+
 @app.post("/api/summarize", response_model=None)
 async def summarize_video(
     request: SummarizeRequest,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
 ) -> SummarizeResponse | JSONResponse:
     try:
         video_id = extract_video_id(request.url)
@@ -68,6 +124,21 @@ async def summarize_video(
                     "youtu.be/..., youtube.com/shorts/..."
                 ),
             ).model_dump(),
+        )
+
+    # Cache check: return stored result if available
+    existing = await get_by_video_id(conn, video_id)
+    if existing is not None:
+        cached_metadata = VideoMetadata(
+            video_id=existing.video_id,
+            title=existing.title,
+            thumbnail_url=existing.thumbnail_url,
+        )
+        return SummarizeResponse(
+            summary=existing.summary,
+            transcript=existing.transcript,
+            metadata=cached_metadata,
+            storage_warning=False,
         )
 
     try:
@@ -134,12 +205,32 @@ async def summarize_video(
     except Exception:
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
-    return SummarizeResponse(summary=summary, transcript=full_text, metadata=metadata)
+    # Build response
+    response = SummarizeResponse(
+        summary=summary, transcript=full_text, metadata=metadata
+    )
+
+    # Persist to database — failures must not block the response
+    try:
+        await save_record(
+            conn,
+            video_id=video_id,
+            title=metadata.title if metadata else None,
+            thumbnail_url=metadata.thumbnail_url if metadata else None,
+            summary=summary,
+            transcript=full_text,
+        )
+    except Exception:
+        logger.warning("Failed to persist record for %s", video_id)
+        response.storage_warning = True
+
+    return response
 
 
 @app.post("/api/fallacies", response_model=None)
 async def analyze_video_fallacies(
     request: FallacyAnalysisRequest,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
 ) -> FallacyAnalysisResult | JSONResponse:
     try:
         video_id = extract_video_id(request.url)
@@ -164,6 +255,11 @@ async def analyze_video_fallacies(
                 ),
             ).model_dump(),
         )
+
+    # Check for cached analysis first
+    cached = await get_fallacy_analysis(conn, video_id)
+    if cached is not None:
+        return cached
 
     try:
         full_text, _segments = get_transcript(video_id)
@@ -198,8 +294,16 @@ async def analyze_video_fallacies(
             status_code=502,
             content=ErrorResponse(
                 error="analysis_failed",
-                message="Unable to analyze fallacies at this time. Please try again later.",
+                message=(
+                    "Unable to analyze fallacies at this time. Please try again later."
+                ),
             ).model_dump(),
         )
+
+    # Save to database (fire and forget - don't block response)
+    try:
+        await save_fallacy_analysis(conn, video_id, result.model_dump())
+    except Exception:
+        logger.warning("Failed to save fallacy analysis for %s", video_id)
 
     return result

@@ -1,10 +1,41 @@
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import asyncpg
 from fastapi.testclient import TestClient
 
+from app.db import get_db
 from app.main import app
+from app.models import VideoRecord
 
 client = TestClient(app)
+
+# ---------------------------------------------------------------------------
+# Shared fake data for DB-related tests
+# ---------------------------------------------------------------------------
+
+_FAKE_VIDEO_ID = "dQw4w9WgXcQ"
+_FAKE_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
+
+# A dict that mimics an asyncpg Record row for the summaries table.
+_FAKE_DB_ROW: dict = {
+    "id": 1,
+    "video_id": _FAKE_VIDEO_ID,
+    "title": "Test Video",
+    "thumbnail_url": f"https://i.ytimg.com/vi/{_FAKE_VIDEO_ID}/hqdefault.jpg",
+    "summary": "Test summary",
+    "transcript": "Test transcript",
+    "created_at": _FAKE_CREATED_AT,
+}
+
+# A HistoryItem as returned by list_recent when a record exists.
+_FAKE_HISTORY_ROW: dict = {
+    "video_id": _FAKE_VIDEO_ID,
+    "title": "Test Video",
+    "thumbnail_url": f"https://i.ytimg.com/vi/{_FAKE_VIDEO_ID}/hqdefault.jpg",
+    "summary": "Test summary",
+    "created_at": _FAKE_CREATED_AT,
+}
 
 
 class TestSummarizeEndpointHappyPath:
@@ -460,3 +491,292 @@ class TestSummarizeEndpointLengthPercent:
         messages = call_kwargs.kwargs["messages"]
         system_msg = next(m for m in messages if m["role"] == "system")
         assert "25%" in system_msg["content"]
+
+
+# ---------------------------------------------------------------------------
+# US1: history and storage_warning integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetHistoryEndpoint:
+    """Integration tests for GET /api/history (US1)."""
+
+    def test_get_history_empty(self) -> None:
+        """GET /api/history returns 200 with an empty items list when DB has no rows."""
+        mock_conn = AsyncMock(spec=asyncpg.Connection)
+        mock_conn.fetch.return_value = []
+
+        async def override_get_db():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            response = client.get("/api/history")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert data["items"] == []
+
+    def test_get_history_returns_items(self) -> None:
+        """GET /api/history returns 200 with the stored video when DB has a row."""
+        mock_conn = AsyncMock(spec=asyncpg.Connection)
+        mock_conn.fetch.return_value = [_FAKE_HISTORY_ROW]
+
+        async def override_get_db():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            response = client.get("/api/history")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert len(data["items"]) == 1
+        item = data["items"][0]
+        assert item["video_id"] == _FAKE_VIDEO_ID
+        assert item["title"] == "Test Video"
+        assert item["summary"] == "Test summary"
+
+
+class TestSummarizeStorageWarning:
+    """Integration tests for storage_warning field on POST /api/summarize (US1)."""
+
+    def _make_snippet(self, text: str, start: float, duration: float) -> MagicMock:
+        snippet = MagicMock()
+        snippet.text = text
+        snippet.start = start
+        snippet.duration = duration
+        return snippet
+
+    def _setup_transcript_mock(
+        self, mock_ytt_class: MagicMock, text: str = "Hello world"
+    ) -> None:
+        mock_ytt = MagicMock()
+        mock_ytt_class.return_value = mock_ytt
+        snippets = [self._make_snippet(text, 0.0, 3.0)]
+        mock_transcript = MagicMock()
+        mock_transcript.__iter__ = MagicMock(return_value=iter(snippets))
+        mock_transcript.to_raw_data.return_value = [
+            {"text": text, "start": 0.0, "duration": 3.0},
+        ]
+        mock_ytt.fetch.return_value = mock_transcript
+
+    def _setup_openai_mock(
+        self, mock_openai_class: MagicMock, summary_text: str = "A summary."
+    ) -> None:
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = summary_text
+        mock_client.chat.completions.create.return_value = mock_response
+
+    @patch("app.services.summarizer.OpenAI")
+    @patch("app.services.transcript.YouTubeTranscriptApi")
+    @patch("app.services.youtube.httpx.get")
+    def test_summarize_sets_storage_warning_false_on_success(
+        self,
+        mock_httpx_get: MagicMock,
+        mock_ytt_class: MagicMock,
+        mock_openai_class: MagicMock,
+    ) -> None:
+        """POST /api/summarize returns storage_warning=false when DB save succeeds."""
+        self._setup_transcript_mock(mock_ytt_class)
+        self._setup_openai_mock(mock_openai_class)
+
+        # Mock oEmbed metadata so it doesn't make a real HTTP call
+        mock_httpx_response = MagicMock()
+        mock_httpx_response.raise_for_status.return_value = None
+        mock_httpx_response.json.return_value = {
+            "title": "Test Video",
+            "author_name": "Test Channel",
+            "thumbnail_url": _FAKE_DB_ROW["thumbnail_url"],
+        }
+        mock_httpx_get.return_value = mock_httpx_response
+
+        # Mock DB connection where save_record succeeds
+        mock_conn = AsyncMock(spec=asyncpg.Connection)
+        mock_conn.execute.return_value = None
+        mock_conn.fetchrow.return_value = _FAKE_DB_ROW
+
+        async def override_get_db():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            response = client.post(
+                "/api/summarize",
+                json={"url": f"https://www.youtube.com/watch?v={_FAKE_VIDEO_ID}"},
+            )
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "summary" in data
+        assert data.get("storage_warning") is False
+
+    @patch("app.services.summarizer.OpenAI")
+    @patch("app.services.transcript.YouTubeTranscriptApi")
+    @patch("app.services.youtube.httpx.get")
+    def test_summarize_sets_storage_warning_true_on_db_failure(
+        self,
+        mock_httpx_get: MagicMock,
+        mock_ytt_class: MagicMock,
+        mock_openai_class: MagicMock,
+    ) -> None:
+        """POST /api/summarize returns 200 with storage_warning=true on DB failure."""
+        self._setup_transcript_mock(mock_ytt_class)
+        self._setup_openai_mock(mock_openai_class)
+
+        # Mock oEmbed metadata
+        mock_httpx_response = MagicMock()
+        mock_httpx_response.raise_for_status.return_value = None
+        mock_httpx_response.json.return_value = {
+            "title": "Test Video",
+            "author_name": "Test Channel",
+            "thumbnail_url": _FAKE_DB_ROW["thumbnail_url"],
+        }
+        mock_httpx_get.return_value = mock_httpx_response
+
+        # Mock DB connection where save_record raises (DB unavailable)
+        mock_conn = AsyncMock(spec=asyncpg.Connection)
+        # fetchrow returns None so the cache-check finds no existing record
+        mock_conn.fetchrow.return_value = None
+        mock_conn.execute.side_effect = Exception("DB connection refused")
+
+        async def override_get_db():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            response = client.post(
+                "/api/summarize",
+                json={"url": f"https://www.youtube.com/watch?v={_FAKE_VIDEO_ID}"},
+            )
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "summary" in data
+        assert data.get("storage_warning") is True
+
+
+# ---------------------------------------------------------------------------
+# US2: cache-hit path integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeCacheHit:
+    """Integration tests for the cache-hit path on POST /api/summarize (US2)."""
+
+    def test_summarize_returns_cached_result_without_reprocessing(self) -> None:
+        """When a video_id already exists in the DB, the stored result is returned
+        immediately. Transcript and summarize services must NOT be called."""
+        fake_record = VideoRecord(
+            id=1,
+            video_id=_FAKE_VIDEO_ID,
+            title="Cached Title",
+            thumbnail_url=f"https://i.ytimg.com/vi/{_FAKE_VIDEO_ID}/hqdefault.jpg",
+            summary="Cached summary",
+            transcript="Cached transcript",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+        async def override_get_db():
+            mock_conn = AsyncMock()
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            with (
+                patch(
+                    "app.main.get_by_video_id",
+                    new_callable=AsyncMock,
+                    return_value=fake_record,
+                ),
+                patch("app.main.get_transcript") as mock_transcript,
+                patch("app.main.generate_summary") as mock_summarize,
+            ):
+                response = client.post(
+                    "/api/summarize",
+                    json={"url": f"https://www.youtube.com/watch?v={_FAKE_VIDEO_ID}"},
+                )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["summary"] == "Cached summary"
+            assert data["transcript"] == "Cached transcript"
+            mock_transcript.assert_not_called()
+            mock_summarize.assert_not_called()
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+
+# ---------------------------------------------------------------------------
+# US3: GET /api/history/{video_id} integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestGetHistoryItemEndpoint:
+    """Integration tests for GET /api/history/{video_id} (US3)."""
+
+    def test_get_history_item_returns_full_record_with_transcript(self) -> None:
+        """GET /api/history/{video_id} returns the full record including transcript."""
+        fake_record = VideoRecord(
+            id=1,
+            video_id=_FAKE_VIDEO_ID,
+            title="Full Record Title",
+            thumbnail_url="https://example.com/thumb.jpg",
+            summary="Full summary",
+            transcript="Full transcript content",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+        def override_get_db():
+            mock_conn = AsyncMock()
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with patch(
+                "app.main.get_full_record",
+                new_callable=AsyncMock,
+                return_value=fake_record,
+            ):
+                response = client.get(f"/api/history/{_FAKE_VIDEO_ID}")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["transcript"] == "Full transcript content"
+            assert data["summary"] == "Full summary"
+            assert data["video_id"] == _FAKE_VIDEO_ID
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+    def test_get_history_item_returns_404_for_unknown_video_id(self) -> None:
+        """GET /api/history/{video_id} returns 404 when video_id not in storage."""
+
+        def override_get_db():
+            mock_conn = AsyncMock()
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            with patch(
+                "app.main.get_full_record",
+                new_callable=AsyncMock,
+                return_value=None,
+            ):
+                response = client.get("/api/history/unknownvideo1")
+            assert response.status_code == 404
+            data = response.json()
+            assert data["error"] == "not_found"
+        finally:
+            app.dependency_overrides.pop(get_db, None)

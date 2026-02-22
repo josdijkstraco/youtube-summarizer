@@ -43,10 +43,35 @@ export interface SummarizeResponse {
   summary: string;
   transcript: string;
   metadata: VideoMetadata | null;
+  storage_warning?: boolean;
 }
 
 export interface ErrorResponse {
   error: string;
   message: string;
   details: string | null;
+}
+
+export interface HistoryItem {
+  video_id: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  summary: string;
+  has_fallacy_analysis: boolean;
+  created_at: string; // ISO 8601 timestamp
+}
+
+export interface HistoryResponse {
+  items: HistoryItem[];
+}
+
+export interface VideoRecord {
+  id: number;
+  video_id: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  summary: string;
+  transcript: string;
+  fallacy_analysis: FallacyAnalysisResult | null;
+  created_at: string;
 }
