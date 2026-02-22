@@ -2,7 +2,9 @@
 
 <template>
   <div class="loading-state">
-    <div class="loading-state__spinner"></div>
+    <div class="loading-state__bar">
+      <div class="loading-state__fill"></div>
+    </div>
     <p class="loading-state__text">Generating summary...</p>
   </div>
 </template>
@@ -12,27 +14,36 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 2rem;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
 }
 
-.loading-state__spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top-color: #e53e3e;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.loading-state__bar {
+  width: 100%;
+  height: 3px;
+  background: #E8E5DE;
+  border-radius: 2px;
+  overflow: hidden;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.loading-state__fill {
+  width: 40%;
+  height: 100%;
+  background: #C45D3E;
+  border-radius: 2px;
+  animation: slide 1.4s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
 
 .loading-state__text {
-  font-size: 1rem;
-  color: #718096;
+  font-size: 0.85rem;
+  color: #8A8578;
+  letter-spacing: 0.02em;
 }
 </style>

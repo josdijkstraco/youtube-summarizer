@@ -21,60 +21,128 @@ function handleSubmit() {
 
 <template>
   <form class="url-input" @submit.prevent="handleSubmit">
-    <input
-      v-model="url"
-      type="text"
-      placeholder="Paste a YouTube URL..."
-      :disabled="props.loading"
-      class="url-input__field"
-    />
-    <button
-      type="submit"
-      :disabled="props.loading || !url.trim()"
-      class="url-input__button"
-    >
-      Summarize
-    </button>
+    <div class="url-input__wrapper">
+      <svg class="url-input__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+      <input
+        v-model="url"
+        type="text"
+        placeholder="Paste a YouTube URL..."
+        :disabled="props.loading"
+        class="url-input__field"
+      />
+      <button
+        type="submit"
+        :disabled="props.loading || !url.trim()"
+        class="url-input__button"
+      >
+        <span v-if="!props.loading">Summarize</span>
+        <span v-else class="url-input__loading-dots">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+    </div>
   </form>
 </template>
 
 <style scoped>
 .url-input {
-  display: flex;
-  gap: 0.5rem;
   width: 100%;
   max-width: 640px;
 }
 
+.url-input__wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.25rem;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 100px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.url-input__wrapper:focus-within {
+  border-color: rgba(196, 93, 62, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(196, 93, 62, 0.06);
+}
+
+.url-input__icon {
+  flex-shrink: 0;
+  color: #B8B2A6;
+}
+
 .url-input__field {
   flex: 1;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  padding: 0.6rem 0;
+  font-size: 0.95rem;
+  font-family: 'DM Sans', sans-serif;
+  color: #2C2C2C;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.url-input__field::placeholder {
+  color: #B8B2A6;
 }
 
 .url-input__field:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .url-input__button {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #fff;
-  background-color: #e53e3e;
+  flex-shrink: 0;
+  padding: 0.65rem 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  color: #FFFFFF;
+  background: #2C2C2C;
   border: none;
-  border-radius: 6px;
+  border-radius: 100px;
   cursor: pointer;
-}
-
-.url-input__button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  transition: background 0.2s;
+  min-width: 110px;
 }
 
 .url-input__button:not(:disabled):hover {
-  background-color: #c53030;
+  background: #1A1A1A;
+}
+
+.url-input__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.url-input__loading-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+}
+
+.url-input__loading-dots span {
+  width: 5px;
+  height: 5px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.url-input__loading-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.url-input__loading-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
 }
 </style>

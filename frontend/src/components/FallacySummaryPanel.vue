@@ -44,68 +44,72 @@ defineProps<{
 <style scoped>
 .fallacy-summary-panel {
   width: 100%;
-  max-width: 960px;
-  padding: 1rem 1.25rem;
-  background-color: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  max-width: 720px;
+  padding: 1.25rem 1.5rem;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .fallacy-summary-panel__total {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .fallacy-summary-panel__count {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #1a202c;
+  font-family: 'Instrument Serif', serif;
+  font-size: 2rem;
+  font-weight: 400;
+  color: #2C2C2C;
+  line-height: 1;
 }
 
 .fallacy-summary-panel__label {
-  font-size: 0.875rem;
-  color: #718096;
+  font-size: 0.85rem;
+  color: #8A8578;
 }
 
 .fallacy-summary-panel__breakdown {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .fallacy-summary-panel__severity {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  border-radius: 100px;
 }
 
 .fallacy-summary-panel__severity--high {
-  color: #c53030;
-  background-color: #fed7d7;
+  color: #C45D3E;
+  background: rgba(196, 93, 62, 0.1);
 }
 
 .fallacy-summary-panel__severity--medium {
-  color: #c05621;
-  background-color: #feebc8;
+  color: #D4913A;
+  background: rgba(212, 145, 58, 0.1);
 }
 
 .fallacy-summary-panel__severity--low {
-  color: #975a16;
-  background-color: #fefcbf;
+  color: #8A7A3A;
+  background: rgba(184, 168, 78, 0.1);
 }
 
 .fallacy-summary-panel__tactics {
-  font-size: 0.875rem;
-  color: #4a5568;
+  font-size: 0.85rem;
+  color: #3D3D3D;
+  line-height: 1.5;
 }
 
 .fallacy-summary-panel__tactics-label {
   font-weight: 600;
-  color: #718096;
+  color: #8A8578;
 }
 </style>

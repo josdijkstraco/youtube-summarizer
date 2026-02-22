@@ -31,7 +31,12 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   <aside class="history-panel">
     <div class="history-panel__heading">
       <h2>Recent Videos</h2>
-      <button class="history-panel__close" aria-label="Close history" @click="emit('close')">✕</button>
+      <button class="history-panel__close" aria-label="Close history" @click="emit('close')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
     </div>
 
     <div v-if="historyLoading" class="history-panel__status">
@@ -62,24 +67,25 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 .history-panel {
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  background: #FFFFFF;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
 }
 
 .history-panel__heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fff;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .history-panel__heading h2 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1a202c;
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.15rem;
+  font-weight: 400;
+  color: #2C2C2C;
   margin: 0;
 }
 
@@ -87,32 +93,31 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
   background: none;
   border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  color: #718096;
+  border-radius: 6px;
+  color: #8A8578;
   cursor: pointer;
-  line-height: 1;
+  transition: background 0.15s, color 0.15s;
 }
 
 .history-panel__close:hover {
-  background: #edf2f7;
-  color: #1a202c;
+  background: #F0EDE7;
+  color: #2C2C2C;
 }
 
 .history-panel__status {
-  padding: 1rem;
-  font-size: 0.875rem;
-  color: #718096;
+  padding: 1.5rem 1.25rem;
+  font-size: 0.85rem;
+  color: #8A8578;
   text-align: center;
 }
 
 .history-panel__status--error {
-  color: #e53e3e;
+  color: #C45D3E;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -120,17 +125,19 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 }
 
 .history-panel__retry {
-  padding: 0.25rem 0.75rem;
-  background: #e53e3e;
-  color: #fff;
+  padding: 0.35rem 0.85rem;
+  background: #C45D3E;
+  color: #FFFFFF;
   border: none;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-family: 'DM Sans', sans-serif;
   cursor: pointer;
+  transition: background 0.2s;
 }
 
 .history-panel__retry:hover {
-  background: #c53030;
+  background: #A84D33;
 }
 
 .history-panel__list {

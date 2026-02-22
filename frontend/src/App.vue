@@ -116,7 +116,6 @@ async function handleSelectVideo(videoId: string) {
       channel_name: null,
       duration_seconds: null,
     };
-    // Load cached fallacy analysis if present
     if (record.fallacy_analysis) {
       fallacyAnalysis.value = record.fallacy_analysis;
     }
@@ -150,7 +149,9 @@ async function handleSelectVideo(videoId: string) {
         class="drawer-tab"
         @click="drawerOpen = true"
       >
-        <span class="drawer-tab__arrow">›</span>
+        <svg class="drawer-tab__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
         <span class="drawer-tab__label">History</span>
       </button>
       <div class="drawer__scroll">
@@ -158,24 +159,37 @@ async function handleSelectVideo(videoId: string) {
       </div>
     </div>
     <main class="app-main">
-      <h1>YouTube Summarizer</h1>
-      <UrlInput :loading="loading" @submit="handleSubmit" />
-      <LengthSlider v-model="lengthPercent" :disabled="loading" />
+      <header class="app-header">
+        <h1 class="app-title">YouTube<br /><span class="app-title__accent">Summarizer</span></h1>
+        <p class="app-subtitle">Paste a link. Get the essence.</p>
+      </header>
+      <div class="app-controls">
+        <UrlInput :loading="loading" @submit="handleSubmit" />
+        <LengthSlider v-model="lengthPercent" :disabled="loading" />
+      </div>
       <LoadingState v-if="loading" />
       <ErrorMessage v-if="error" :error="error" @retry="handleRetry" />
-      <SummaryDisplay
-        v-if="summary"
-        :summary="summary"
-        :transcript="transcript ?? ''"
-        :metadata="metadata"
-      />
-      <button
-        v-if="summary && !fallacyAnalysis && !fallacyLoading"
-        class="analyze-button"
-        @click="handleAnalyzeFallacies"
-      >
-        Analyze for Logical Fallacies
-      </button>
+      <Transition name="fade-up">
+        <SummaryDisplay
+          v-if="summary"
+          :summary="summary"
+          :transcript="transcript ?? ''"
+          :metadata="metadata"
+        />
+      </Transition>
+      <Transition name="fade-up">
+        <button
+          v-if="summary && !fallacyAnalysis && !fallacyLoading"
+          class="analyze-button"
+          @click="handleAnalyzeFallacies"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          Analyze for Logical Fallacies
+        </button>
+      </Transition>
       <LoadingState v-if="fallacyLoading" />
       <ErrorMessage
         v-if="fallacyError"
@@ -186,14 +200,18 @@ async function handleSelectVideo(videoId: string) {
           }
         "
       />
-      <FallacySummaryPanel
-        v-if="fallacyAnalysis"
-        :summary="fallacyAnalysis.summary"
-      />
-      <FallacyDisplay
-        v-if="fallacyAnalysis"
-        :fallacies="fallacyAnalysis.fallacies"
-      />
+      <Transition name="fade-up">
+        <FallacySummaryPanel
+          v-if="fallacyAnalysis"
+          :summary="fallacyAnalysis.summary"
+        />
+      </Transition>
+      <Transition name="fade-up">
+        <FallacyDisplay
+          v-if="fallacyAnalysis"
+          :fallacies="fallacyAnalysis.fallacies"
+        />
+      </Transition>
     </main>
   </div>
 </template>
@@ -202,62 +220,58 @@ async function handleSelectVideo(videoId: string) {
 #app {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.5rem;
-  padding: 2rem 1rem;
   min-height: 100vh;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
   align-items: start;
 }
 
+/* ---- Drawer ---- */
 .drawer-tab {
   position: absolute;
-  right: -3rem;
-  top: 1.5rem;
+  right: -2.75rem;
+  top: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
-  width: 3rem;
-  padding: 0.6rem 0.4rem;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  gap: 0.4rem;
+  width: 2.75rem;
+  padding: 0.7rem 0.5rem;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-left: none;
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 10px 10px 0;
   cursor: pointer;
-  box-shadow: 3px 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.04);
+  transition: background 0.2s, box-shadow 0.2s;
 }
 
 .drawer-tab:hover {
-  background: #f7fafc;
+  background: #F5F4F0;
+  box-shadow: 2px 2px 16px rgba(0, 0, 0, 0.07);
 }
 
-.drawer-tab__arrow {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #4a5568;
-  line-height: 1;
+.drawer-tab__icon {
+  color: #8A8578;
 }
 
 .drawer-tab__label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #718096;
+  color: #8A8578;
   writing-mode: vertical-rl;
+  font-family: 'DM Sans', sans-serif;
 }
 
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(44, 44, 44, 0.2);
+  backdrop-filter: blur(2px);
   z-index: 999;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s;
+  transition: opacity 0.3s;
 }
 
 .drawer-overlay--visible {
@@ -270,10 +284,10 @@ async function handleSelectVideo(videoId: string) {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 560px;
+  width: 520px;
   z-index: 1000;
   transform: translateX(-100%);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: visible;
 }
 
@@ -287,39 +301,105 @@ async function handleSelectVideo(videoId: string) {
   padding: 1rem;
 }
 
-@media (min-width: 769px) {
-  .drawer-overlay {
-    display: none;
-  }
-}
-
+/* ---- Main Content ---- */
 .app-main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  gap: 2rem;
+  padding: 4rem 1.5rem 6rem;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
 }
 
-h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0;
+.app-header {
+  text-align: center;
+  animation: fadeIn 0.6s ease-out;
 }
 
+.app-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 3.25rem;
+  font-weight: 400;
+  line-height: 1.1;
+  color: #2C2C2C;
+  letter-spacing: -0.01em;
+}
+
+.app-title__accent {
+  color: #C45D3E;
+}
+
+.app-subtitle {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 300;
+  color: #8A8578;
+  letter-spacing: 0.02em;
+}
+
+.app-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* ---- Analyze Button ---- */
 .analyze-button {
-  padding: 0.75rem 1.5rem;
-  background-color: #e53e3e;
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background: transparent;
+  color: #C45D3E;
+  border: 1.5px solid #C45D3E;
+  border-radius: 100px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.25s ease;
+  letter-spacing: 0.01em;
 }
 
 .analyze-button:hover {
-  background-color: #c53030;
+  background: #C45D3E;
+  color: #FFFFFF;
+}
+
+/* ---- Transitions ---- */
+.fade-up-enter-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-up-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-up-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.fade-up-leave-to {
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+  .app-title {
+    font-size: 2.5rem;
+  }
+
+  .app-main {
+    padding: 2.5rem 1rem 4rem;
+  }
 }
 </style>

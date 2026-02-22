@@ -28,18 +28,22 @@ function formatDuration(seconds: number): string {
         :alt="metadata.title ?? 'Video thumbnail'"
         class="summary-display__thumbnail"
       />
-      <h2 v-if="metadata.title" class="summary-display__title">
-        {{ metadata.title }}
-      </h2>
-      <p v-if="metadata.channel_name" class="summary-display__channel">
-        {{ metadata.channel_name }}
-      </p>
-      <p
-        v-if="metadata.duration_seconds != null"
-        class="summary-display__duration"
-      >
-        {{ formatDuration(metadata.duration_seconds) }}
-      </p>
+      <div class="summary-display__meta-text">
+        <h2 v-if="metadata.title" class="summary-display__title">
+          {{ metadata.title }}
+        </h2>
+        <div class="summary-display__meta-row">
+          <span v-if="metadata.channel_name" class="summary-display__channel">
+            {{ metadata.channel_name }}
+          </span>
+          <span
+            v-if="metadata.duration_seconds != null"
+            class="summary-display__duration"
+          >
+            {{ formatDuration(metadata.duration_seconds) }}
+          </span>
+        </div>
+      </div>
     </div>
     <div class="summary-display__tabs">
       <button
@@ -79,78 +83,96 @@ function formatDuration(seconds: number): string {
 <style scoped>
 .summary-display {
   width: 100%;
-  max-width: 960px;
-  padding: 1.5rem;
-  background-color: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  max-width: 720px;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 6px 24px rgba(0, 0, 0, 0.02);
 }
 
 .summary-display__meta {
-  margin-bottom: 1.25rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  align-items: center;
 }
 
 .summary-display__thumbnail {
-  width: 100%;
-  border-radius: 6px;
-  margin-bottom: 0.75rem;
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.summary-display__meta-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .summary-display__title {
-  margin: 0 0 0.25rem;
-  font-size: 1.125rem;
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #1a202c;
+  color: #2C2C2C;
+  line-height: 1.35;
+}
+
+.summary-display__meta-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .summary-display__channel {
-  margin: 0 0 0.25rem;
-  font-size: 0.875rem;
-  color: #718096;
+  font-size: 0.8rem;
+  color: #8A8578;
 }
 
 .summary-display__duration {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #a0aec0;
+  font-size: 0.8rem;
+  color: #B8B2A6;
+  font-variant-numeric: tabular-nums;
 }
 
 .summary-display__tabs {
   display: flex;
   gap: 0;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .summary-display__tab {
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 0;
+  margin-right: 1.5rem;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  font-size: 0.9375rem;
+  font-size: 0.85rem;
   font-weight: 500;
-  color: #718096;
+  font-family: 'DM Sans', sans-serif;
+  color: #B8B2A6;
   cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
+  transition: color 0.2s, border-color 0.2s;
 }
 
 .summary-display__tab:hover {
-  color: #2d3748;
+  color: #2C2C2C;
 }
 
 .summary-display__tab.is-active {
-  color: #2d3748;
-  border-bottom-color: #2d3748;
+  color: #2C2C2C;
+  border-bottom-color: #C45D3E;
 }
 
 .summary-display__content {
-  line-height: 1.7;
-  color: #4a5568;
+  padding: 1.5rem;
+  line-height: 1.75;
+  color: #3D3D3D;
+  font-size: 0.95rem;
 }
 
 .summary-display__paragraph {
@@ -165,7 +187,8 @@ function formatDuration(seconds: number): string {
 .summary-display__transcript {
   margin: 0;
   white-space: pre-wrap;
-  font-size: 0.9rem;
-  line-height: 1.7;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: #5A5A5A;
 }
 </style>

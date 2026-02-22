@@ -15,36 +15,20 @@ function formatDate(isoString: string): string {
 </script>
 
 <template>
-  <div class="history-card">
+  <div class="history-card" @click="emit('select', item.video_id)">
     <img
       v-if="item.thumbnail_url"
       :src="item.thumbnail_url"
       :alt="item.title ?? 'Video thumbnail'"
       class="history-card__thumb"
-      width="80"
-      height="45"
+      width="88"
+      height="50"
       @error="($event.target as HTMLImageElement).style.display = 'none'"
     />
     <div class="history-card__body">
-      <a
-        :href="`https://www.youtube.com/watch?v=${item.video_id}`"
-        target="_blank"
-        rel="noopener"
-        class="history-card__title"
-        >{{ item.title ?? item.video_id }}</a
-      >
+      <p class="history-card__title">{{ item.title ?? item.video_id }}</p>
       <p class="history-card__summary">{{ item.summary }}</p>
-      <div class="history-card__footer">
-        <span class="history-card__date">{{
-          formatDate(item.created_at)
-        }}</span>
-        <button
-          class="history-card__view-btn"
-          @click.stop="emit('select', item.video_id)"
-        >
-          View
-        </button>
-      </div>
+      <span class="history-card__date">{{ formatDate(item.created_at) }}</span>
     </div>
   </div>
 </template>
@@ -52,17 +36,27 @@ function formatDate(isoString: string): string {
 <style scoped>
 .history-card {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-bottom: 1px solid #e2e8f0;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.history-card:hover {
+  background: #FAF9F6;
+}
+
+.history-card:last-child {
+  border-bottom: none;
 }
 
 .history-card__thumb {
   flex-shrink: 0;
-  width: 80px;
-  height: 45px;
+  width: 88px;
+  height: 50px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .history-card__body {
@@ -71,54 +65,31 @@ function formatDate(isoString: string): string {
 }
 
 .history-card__title {
-  display: block;
-  font-size: 0.875rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #1a202c;
-  text-decoration: none;
-  margin-bottom: 0.25rem;
+  color: #2C2C2C;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.history-card__title:hover {
-  text-decoration: underline;
+  line-height: 1.3;
 }
 
 .history-card__summary {
   margin: 0;
-  font-size: 0.8rem;
-  color: #718096;
+  font-size: 0.775rem;
+  color: #8A8578;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.history-card__footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.25rem;
+  line-height: 1.45;
 }
 
 .history-card__date {
-  font-size: 0.7rem;
-  color: #a0aec0;
-}
-
-.history-card__view-btn {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  background: #3182ce;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.history-card__view-btn:hover {
-  background: #2c5282;
+  font-size: 0.675rem;
+  color: #B8B2A6;
+  margin-top: 0.2rem;
+  display: inline-block;
 }
 </style>
