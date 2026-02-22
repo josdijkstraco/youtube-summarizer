@@ -112,7 +112,10 @@ def _parse_video_record(row: asyncpg.Record | None) -> VideoRecord | None:
     data = dict(row)
     # Parse fallacy_analysis JSON if present
     if data.get("fallacy_analysis"):
-        data["fallacy_analysis"] = FallacyAnalysisResult(**data["fallacy_analysis"])
+        raw = data["fallacy_analysis"]
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+        data["fallacy_analysis"] = FallacyAnalysisResult(**raw)
     return VideoRecord(**data)
 
 
@@ -148,4 +151,7 @@ async def get_fallacy_analysis(
     )
     if row is None or row["fallacy_analysis"] is None:
         return None
-    return FallacyAnalysisResult(**row["fallacy_analysis"])
+    raw = row["fallacy_analysis"]
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    return FallacyAnalysisResult(**raw)
