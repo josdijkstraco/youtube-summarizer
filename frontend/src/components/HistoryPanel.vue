@@ -24,12 +24,15 @@ async function loadHistory(): Promise<void> {
 onMounted(loadHistory);
 
 defineExpose({ reload: loadHistory });
-const emit = defineEmits<{ selectVideo: [videoId: string] }>();
+const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 </script>
 
 <template>
   <aside class="history-panel">
-    <h2 class="history-panel__heading">Recent Videos</h2>
+    <div class="history-panel__heading">
+      <h2>Recent Videos</h2>
+      <button class="history-panel__close" aria-label="Close history" @click="emit('close')">✕</button>
+    </div>
 
     <div v-if="historyLoading" class="history-panel__status">
       Loading history...
@@ -65,13 +68,40 @@ const emit = defineEmits<{ selectVideo: [videoId: string] }>();
 }
 
 .history-panel__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.history-panel__heading h2 {
   font-size: 1rem;
   font-weight: 700;
   color: #1a202c;
   margin: 0;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fff;
+}
+
+.history-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #718096;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.history-panel__close:hover {
+  background: #edf2f7;
+  color: #1a202c;
 }
 
 .history-panel__status {

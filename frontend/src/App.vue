@@ -138,22 +138,24 @@ async function handleSelectVideo(videoId: string) {
 
 <template>
   <div id="app">
-    <button
-      aria-label="Toggle history"
-      class="drawer-toggle"
-      :class="{ 'drawer-toggle--open': drawerOpen }"
-      @click="drawerOpen = !drawerOpen"
-    >
-      <span class="drawer-toggle__icon">{{ drawerOpen ? "←" : "→" }}</span>
-      <span class="drawer-toggle__label">History</span>
-    </button>
     <div
       class="drawer-overlay"
       :class="{ 'drawer-overlay--visible': drawerOpen }"
       @click="drawerOpen = false"
     ></div>
     <div class="drawer" :class="{ 'drawer--open': drawerOpen }">
-      <HistoryPanel ref="historyPanelRef" @select-video="handleSelectVideo" />
+      <button
+        v-show="!drawerOpen"
+        aria-label="Open history"
+        class="drawer-tab"
+        @click="drawerOpen = true"
+      >
+        <span class="drawer-tab__arrow">›</span>
+        <span class="drawer-tab__label">History</span>
+      </button>
+      <div class="drawer__scroll">
+        <HistoryPanel ref="historyPanelRef" @select-video="handleSelectVideo" @close="drawerOpen = false" />
+      </div>
     </div>
     <main class="app-main">
       <h1>YouTube Summarizer</h1>
@@ -210,37 +212,42 @@ async function handleSelectVideo(videoId: string) {
   align-items: start;
 }
 
-.drawer-toggle {
-  position: fixed;
-  left: 0;
-  top: 1rem;
-  z-index: 1001;
+.drawer-tab {
+  position: absolute;
+  right: -3rem;
+  top: 1.5rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
+  gap: 0.35rem;
+  width: 3rem;
+  padding: 0.6rem 0.4rem;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-left: none;
   border-radius: 0 8px 8px 0;
   cursor: pointer;
-  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s;
+  box-shadow: 3px 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.drawer-toggle--open {
-  transform: translateX(560px);
+.drawer-tab:hover {
+  background: #f7fafc;
 }
 
-.drawer-toggle__icon {
-  font-size: 1rem;
+.drawer-tab__arrow {
+  font-size: 1.1rem;
   font-weight: bold;
+  color: #4a5568;
+  line-height: 1;
 }
 
-.drawer-toggle__label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #1a202c;
+.drawer-tab__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #718096;
+  writing-mode: vertical-rl;
 }
 
 .drawer-overlay {
@@ -266,14 +273,18 @@ async function handleSelectVideo(videoId: string) {
   width: 560px;
   z-index: 1000;
   transform: translateX(-100%);
-  transition: transform 0.2s ease-out;
-  padding: 1rem;
-  padding-top: 3.5rem;
-  overflow-y: auto;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
 }
 
 .drawer--open {
   transform: translateX(0);
+}
+
+.drawer__scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
 }
 
 @media (min-width: 769px) {
