@@ -116,6 +116,10 @@ async function handleSelectVideo(videoId: string) {
       channel_name: null,
       duration_seconds: null,
     };
+    // Load cached fallacy analysis if present
+    if (record.fallacy_analysis) {
+      fallacyAnalysis.value = record.fallacy_analysis;
+    }
   } catch (e) {
     if (e instanceof ApiError) {
       error.value = e.errorResponse;

@@ -20,8 +20,10 @@ from app.db import (
     create_table,
     get_by_video_id,
     get_db,
+    get_fallacy_analysis,
     get_full_record,
     list_recent,
+    save_fallacy_analysis,
     save_record,
 )
 from app.models import (
@@ -228,6 +230,7 @@ async def summarize_video(
 @app.post("/api/fallacies", response_model=None)
 async def analyze_video_fallacies(
     request: FallacyAnalysisRequest,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
 ) -> FallacyAnalysisResult | JSONResponse:
     try:
         video_id = extract_video_id(request.url)
@@ -252,6 +255,11 @@ async def analyze_video_fallacies(
                 ),
             ).model_dump(),
         )
+
+    # Check for cached analysis first
+    cached = await get_fallacy_analysis(conn, video_id)
+    if cached is not None:
+        return cached
 
     try:
         full_text, _segments = get_transcript(video_id)
@@ -291,5 +299,11 @@ async def analyze_video_fallacies(
                 ),
             ).model_dump(),
         )
+
+    # Save to database (fire and forget - don't block response)
+    try:
+        await save_fallacy_analysis(conn, video_id, result.model_dump())
+    except Exception:
+        logger.warning("Failed to save fallacy analysis for %s", video_id)
 
     return result

@@ -89,6 +89,7 @@ class VideoRecord(BaseModel):
     thumbnail_url: str | None
     summary: str
     transcript: str
+    fallacy_analysis: FallacyAnalysisResult | None = None
     created_at: datetime
 
 
@@ -97,6 +98,7 @@ class HistoryItem(BaseModel):
     title: str | None
     thumbnail_url: str | None
     summary: str
+    has_fallacy_analysis: bool = False
     created_at: datetime
 
 

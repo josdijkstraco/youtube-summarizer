@@ -57,6 +57,7 @@ export interface HistoryItem {
   title: string | null;
   thumbnail_url: string | null;
   summary: string;
+  has_fallacy_analysis: boolean;
   created_at: string; // ISO 8601 timestamp
 }
 
@@ -71,5 +72,6 @@ export interface VideoRecord {
   thumbnail_url: string | null;
   summary: string;
   transcript: string;
+  fallacy_analysis: FallacyAnalysisResult | null;
   created_at: string;
 }

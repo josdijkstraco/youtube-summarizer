@@ -3,6 +3,15 @@ import type { HistoryItem } from "@/types";
 
 defineProps<{ item: HistoryItem }>();
 const emit = defineEmits<{ select: [videoId: string] }>();
+
+function formatDate(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 </script>
 
 <template>
@@ -25,12 +34,17 @@ const emit = defineEmits<{ select: [videoId: string] }>();
         >{{ item.title ?? item.video_id }}</a
       >
       <p class="history-card__summary">{{ item.summary }}</p>
-      <button
-        class="history-card__view-btn"
-        @click.stop="emit('select', item.video_id)"
-      >
-        View
-      </button>
+      <div class="history-card__footer">
+        <span class="history-card__date">{{
+          formatDate(item.created_at)
+        }}</span>
+        <button
+          class="history-card__view-btn"
+          @click.stop="emit('select', item.video_id)"
+        >
+          View
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -82,8 +96,19 @@ const emit = defineEmits<{ select: [videoId: string] }>();
   -webkit-box-orient: vertical;
 }
 
-.history-card__view-btn {
+.history-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 0.25rem;
+}
+
+.history-card__date {
+  font-size: 0.7rem;
+  color: #a0aec0;
+}
+
+.history-card__view-btn {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
   background: #3182ce;
