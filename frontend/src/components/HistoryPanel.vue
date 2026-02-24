@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import type { HistoryItem } from "@/types";
-import { fetchHistory } from "@/services/api";
+import { fetchHistory, deleteHistoryItem, restoreHistoryItem } from "@/services/api";
 import HistoryCard from "./HistoryCard.vue";
 
 const historyItems = ref<HistoryItem[]>([]);
 const historyLoading = ref(false);
 const historyError = ref<string | null>(null);
+
+// Undo toast state
+const undoToast = ref<{
+  videoId: string;
+  item: HistoryItem;
+  index: number;
+} | null>(null);
+let undoTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function loadHistory(): Promise<void> {
   historyLoading.value = true;
@@ -21,7 +29,66 @@ async function loadHistory(): Promise<void> {
   }
 }
 
+function commitPendingDelete() {
+  if (undoTimer) {
+    clearTimeout(undoTimer);
+    undoTimer = null;
+  }
+  undoToast.value = null;
+}
+
+async function handleDelete(videoId: string) {
+  // If there's a pending undo, commit it first
+  commitPendingDelete();
+
+  const index = historyItems.value.findIndex((i) => i.video_id === videoId);
+  if (index === -1) return;
+
+  const item = historyItems.value[index];
+
+  // Optimistically remove
+  historyItems.value.splice(index, 1);
+
+  // Show undo toast
+  undoToast.value = { videoId, item, index };
+
+  // Fire API call in background
+  try {
+    await deleteHistoryItem(videoId);
+  } catch {
+    // Restore on failure
+    historyItems.value.splice(index, 0, item);
+    undoToast.value = null;
+    historyError.value = "Failed to delete. Please try again.";
+    return;
+  }
+
+  // Auto-dismiss after 5 seconds
+  undoTimer = setTimeout(() => {
+    undoToast.value = null;
+  }, 5000);
+}
+
+async function handleUndo() {
+  if (!undoToast.value) return;
+
+  const { videoId, item, index } = undoToast.value;
+  commitPendingDelete();
+
+  try {
+    await restoreHistoryItem(videoId);
+    // Re-insert at original position (clamped to list length)
+    const insertAt = Math.min(index, historyItems.value.length);
+    historyItems.value.splice(insertAt, 0, item);
+  } catch {
+    historyError.value = "Failed to undo. Please reload.";
+  }
+}
+
 onMounted(loadHistory);
+onUnmounted(() => {
+  if (undoTimer) clearTimeout(undoTimer);
+});
 
 defineExpose({ reload: loadHistory });
 const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
@@ -51,15 +118,26 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
       <button class="history-panel__retry" @click="loadHistory">Retry</button>
     </div>
 
-    <div v-else-if="historyItems.length === 0" class="history-panel__status">
+    <div v-else-if="historyItems.length === 0 && !undoToast" class="history-panel__status">
       No summaries yet.
     </div>
 
     <ul v-else class="history-panel__list">
       <li v-for="item in historyItems" :key="item.video_id">
-        <HistoryCard :item="item" @select="emit('selectVideo', $event)" />
+        <HistoryCard
+          :item="item"
+          @select="emit('selectVideo', $event)"
+          @delete="handleDelete"
+        />
       </li>
     </ul>
+
+    <Transition name="toast">
+      <div v-if="undoToast" class="history-panel__toast">
+        <span>Video removed.</span>
+        <button class="history-panel__undo" @click="handleUndo">Undo</button>
+      </div>
+    </Transition>
   </aside>
 </template>
 
@@ -144,5 +222,52 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.history-panel__toast {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: #2C2C2C;
+  color: #FFFFFF;
+  font-size: 0.8rem;
+  border-radius: 0 0 12px 12px;
+}
+
+.history-panel__undo {
+  padding: 0.25rem 0.75rem;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 100px;
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.history-panel__undo:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.toast-enter-active {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-leave-active {
+  transition: all 0.2s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.toast-leave-to {
+  opacity: 0;
 }
 </style>
