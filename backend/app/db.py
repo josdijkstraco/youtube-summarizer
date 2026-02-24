@@ -98,7 +98,10 @@ async def save_record(
 async def get_by_video_id(
     conn: asyncpg.Connection, video_id: str
 ) -> VideoRecord | None:
-    row = await conn.fetchrow("SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id)
+    row = await conn.fetchrow(
+        "SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
     if row is None:
         return None
     return _parse_video_record(row)
@@ -108,7 +111,9 @@ async def list_recent(conn: asyncpg.Connection, limit: int) -> list[HistoryItem]
     rows = await conn.fetch(
         "SELECT video_id, title, thumbnail_url, summary, created_at, "
         "(fallacy_analysis IS NOT NULL) as has_fallacy_analysis "
-        "FROM youtube_summarizer.summaries ORDER BY created_at DESC LIMIT $1",
+        "FROM youtube_summarizer.summaries "
+        "WHERE deleted_at IS NULL "
+        "ORDER BY created_at DESC LIMIT $1",
         limit,
     )
     return [HistoryItem(**dict(row)) for row in rows]
@@ -117,7 +122,10 @@ async def list_recent(conn: asyncpg.Connection, limit: int) -> list[HistoryItem]
 async def get_full_record(
     conn: asyncpg.Connection, video_id: str
 ) -> VideoRecord | None:
-    row = await conn.fetchrow("SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id)
+    row = await conn.fetchrow(
+        "SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
     if row is None:
         return None
     return _parse_video_record(row)
@@ -173,3 +181,27 @@ async def get_fallacy_analysis(
     if isinstance(raw, str):
         raw = json.loads(raw)
     return FallacyAnalysisResult(**raw)
+
+
+async def soft_delete(conn: asyncpg.Connection, video_id: str) -> bool:
+    """Soft-delete a video record. Returns True if a record was deleted."""
+    result = await conn.execute(
+        "UPDATE youtube_summarizer.summaries SET deleted_at = now() "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
+    return result == "UPDATE 1"
+
+
+async def restore(conn: asyncpg.Connection, video_id: str) -> HistoryItem | None:
+    """Restore a soft-deleted video record. Returns the restored item or None."""
+    row = await conn.fetchrow(
+        "UPDATE youtube_summarizer.summaries SET deleted_at = NULL "
+        "WHERE video_id = $1 AND deleted_at IS NOT NULL "
+        "RETURNING video_id, title, thumbnail_url, summary, created_at, "
+        "(fallacy_analysis IS NOT NULL) as has_fallacy_analysis",
+        video_id,
+    )
+    if row is None:
+        return None
+    return HistoryItem(**dict(row))
