@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -23,16 +24,20 @@ from app.db import (
     get_fallacy_analysis,
     get_full_record,
     list_recent,
+    restore,
     save_fallacy_analysis,
     save_record,
+    soft_delete,
 )
 from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
     FallacyAnalysisResult,
+    HistoryItem,
     HistoryResponse,
     SummarizeRequest,
     SummarizeResponse,
+    SummaryStats,
     VideoMetadata,
     VideoRecord,
 )
@@ -61,7 +66,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.backend_cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -95,6 +100,39 @@ async def get_history_item(
             ).model_dump(),
         )
     return record
+
+
+@app.delete("/api/history/{video_id}", status_code=204)
+async def delete_history_item(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> None:
+    deleted = await soft_delete(conn, video_id)
+    if not deleted:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+
+
+@app.post("/api/history/{video_id}/restore", response_model=None)
+async def restore_history_item(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> HistoryItem | JSONResponse:
+    item = await restore(conn, video_id)
+    if item is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No deleted record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return item
 
 
 @app.post("/api/summarize", response_model=None)
@@ -170,11 +208,14 @@ async def summarize_video(
 
     try:
         transcript_word_count = len(full_text.split())
-        summary = generate_summary(
+        t0 = time.monotonic()
+        summary_result = generate_summary(
             full_text,
             transcript_word_count=transcript_word_count,
             length_percent=request.length_percent,
         )
+        duration = time.monotonic() - t0
+        summary = summary_result.content
     except APIError:
         return JSONResponse(
             status_code=502,
@@ -206,8 +247,15 @@ async def summarize_video(
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
     # Build response
+    stats = SummaryStats(
+        chars_in=len(full_text),
+        chars_out=len(summary),
+        total_tokens=summary_result.total_prompt_tokens
+        + summary_result.total_completion_tokens,
+        generation_seconds=round(duration, 2),
+    )
     response = SummarizeResponse(
-        summary=summary, transcript=full_text, metadata=metadata
+        summary=summary, transcript=full_text, metadata=metadata, stats=stats
     )
 
     # Persist to database — failures must not block the response
