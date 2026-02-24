@@ -3,6 +3,7 @@ import type {
   FallacyAnalysisResult,
   ErrorResponse,
   HistoryResponse,
+  HistoryItem,
   VideoRecord,
 } from "@/types";
 
@@ -107,6 +108,50 @@ export async function fetchHistoryItem(videoId: string): Promise<VideoRecord> {
       errorResponse = {
         error: "internal_error",
         message: "Failed to load video record.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function deleteHistoryItem(videoId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/history/${videoId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok && response.status !== 204) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to delete video.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+}
+
+export async function restoreHistoryItem(
+  videoId: string,
+): Promise<HistoryItem> {
+  const response = await fetch(`${API_BASE}/api/history/${videoId}/restore`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to restore video.",
         details: null,
       };
     }
