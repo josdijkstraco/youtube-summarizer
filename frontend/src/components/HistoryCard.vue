@@ -2,7 +2,10 @@
 import type { HistoryItem } from "@/types";
 
 defineProps<{ item: HistoryItem }>();
-const emit = defineEmits<{ select: [videoId: string] }>();
+const emit = defineEmits<{
+  select: [videoId: string];
+  delete: [videoId: string];
+}>();
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -11,6 +14,11 @@ function formatDate(isoString: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function handleDelete(event: Event, videoId: string) {
+  event.stopPropagation();
+  emit("delete", videoId);
 }
 </script>
 
@@ -30,11 +38,22 @@ function formatDate(isoString: string): string {
       <p class="history-card__summary">{{ item.summary }}</p>
       <span class="history-card__date">{{ formatDate(item.created_at) }}</span>
     </div>
+    <button
+      class="history-card__delete"
+      aria-label="Remove from history"
+      @click="handleDelete($event, item.video_id)"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
   </div>
 </template>
 
 <style scoped>
 .history-card {
+  position: relative;
   display: flex;
   gap: 0.85rem;
   padding: 0.85rem 1.25rem;
@@ -91,5 +110,41 @@ function formatDate(isoString: string): string {
   color: #B8B2A6;
   margin-top: 0.2rem;
   display: inline-block;
+}
+
+.history-card__delete {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  color: #B8B2A6;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.history-card:hover .history-card__delete {
+  opacity: 1;
+}
+
+.history-card__delete:hover {
+  color: #C45D3E;
+  background: #FFF5F3;
+  border-color: rgba(196, 93, 62, 0.2);
+}
+
+/* Always show on touch devices */
+@media (hover: none) {
+  .history-card__delete {
+    opacity: 1;
+  }
 }
 </style>
