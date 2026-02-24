@@ -31,7 +31,8 @@ async def create_table(conn: asyncpg.Connection) -> None:
             summary          TEXT         NOT NULL,
             transcript       TEXT         NOT NULL,
             fallacy_analysis JSONB        DEFAULT NULL,
-            created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
+            created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
+            deleted_at       TIMESTAMPTZ  DEFAULT NULL
         )
         """
     )
@@ -48,6 +49,23 @@ async def create_table(conn: asyncpg.Connection) -> None:
             ) THEN
                 ALTER TABLE youtube_summarizer.summaries
                 ADD COLUMN fallacy_analysis JSONB DEFAULT NULL;
+            END IF;
+        END $$;
+        """
+    )
+    # Add deleted_at column to existing tables if it doesn't exist
+    await conn.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'deleted_at'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
             END IF;
         END $$;
         """
