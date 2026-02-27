@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { VideoMetadata } from "@/types";
+import type { VideoMetadata, SummaryStats } from "@/types";
 
 defineProps<{
   summary: string;
   transcript: string;
   metadata?: VideoMetadata | null;
+  stats?: SummaryStats | null;
 }>();
 
 const activeTab = ref<"summary" | "transcript">("summary");
@@ -22,15 +23,29 @@ function formatDuration(seconds: number): string {
 <template>
   <div class="summary-display">
     <div v-if="metadata" class="summary-display__meta">
-      <img
-        v-if="metadata.thumbnail_url"
-        :src="metadata.thumbnail_url"
-        :alt="metadata.title ?? 'Video thumbnail'"
-        class="summary-display__thumbnail"
-      />
+      <a
+        :href="`https://www.youtube.com/watch?v=${metadata.video_id}`"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="summary-display__thumb-link"
+      >
+        <img
+          v-if="metadata.thumbnail_url"
+          :src="metadata.thumbnail_url"
+          :alt="metadata.title ?? 'Video thumbnail'"
+          class="summary-display__thumbnail"
+        />
+      </a>
       <div class="summary-display__meta-text">
         <h2 v-if="metadata.title" class="summary-display__title">
-          {{ metadata.title }}
+          <a
+            :href="`https://www.youtube.com/watch?v=${metadata.video_id}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="summary-display__title-link"
+          >
+            {{ metadata.title }}
+          </a>
         </h2>
         <div class="summary-display__meta-row">
           <span v-if="metadata.channel_name" class="summary-display__channel">
@@ -44,6 +59,24 @@ function formatDuration(seconds: number): string {
           </span>
         </div>
       </div>
+    </div>
+    <div v-if="stats" class="summary-display__stats">
+      <span class="summary-display__stat">
+        <span class="summary-display__stat-label">Chars in</span>
+        <span class="summary-display__stat-value">{{ stats.chars_in.toLocaleString() }}</span>
+      </span>
+      <span class="summary-display__stat">
+        <span class="summary-display__stat-label">Chars out</span>
+        <span class="summary-display__stat-value">{{ stats.chars_out.toLocaleString() }}</span>
+      </span>
+      <span class="summary-display__stat">
+        <span class="summary-display__stat-label">Total tokens</span>
+        <span class="summary-display__stat-value">{{ stats.total_tokens.toLocaleString() }}</span>
+      </span>
+      <span class="summary-display__stat">
+        <span class="summary-display__stat-label">Time</span>
+        <span class="summary-display__stat-value">{{ stats.generation_seconds }}s</span>
+      </span>
     </div>
     <div class="summary-display__tabs">
       <button
@@ -105,6 +138,16 @@ function formatDuration(seconds: number): string {
   object-fit: cover;
   border-radius: 8px;
   flex-shrink: 0;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.summary-display__thumb-link {
+  flex-shrink: 0;
+}
+
+.summary-display__thumb-link:hover .summary-display__thumbnail {
+  opacity: 0.85;
+  transform: scale(1.03);
 }
 
 .summary-display__meta-text {
@@ -118,6 +161,15 @@ function formatDuration(seconds: number): string {
   font-weight: 600;
   color: #2C2C2C;
   line-height: 1.35;
+}
+
+.summary-display__title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.summary-display__title-link:hover {
+  text-decoration: underline;
 }
 
 .summary-display__meta-row {
@@ -135,6 +187,37 @@ function formatDuration(seconds: number): string {
   font-size: 0.8rem;
   color: #B8B2A6;
   font-variant-numeric: tabular-nums;
+}
+
+.summary-display__stats {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.6rem 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+}
+
+.summary-display__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.summary-display__stat-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #B8B2A6;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.summary-display__stat-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2C2C2C;
+  font-variant-numeric: tabular-nums;
+  font-family: 'DM Sans', sans-serif;
 }
 
 .summary-display__tabs {

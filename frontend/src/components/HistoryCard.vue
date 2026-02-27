@@ -24,17 +24,33 @@ function handleDelete(event: Event, videoId: string) {
 
 <template>
   <div class="history-card" @click="emit('select', item.video_id)">
-    <img
-      v-if="item.thumbnail_url"
-      :src="item.thumbnail_url"
-      :alt="item.title ?? 'Video thumbnail'"
-      class="history-card__thumb"
-      width="88"
-      height="50"
-      @error="($event.target as HTMLImageElement).style.display = 'none'"
-    />
+    <a
+      :href="`https://www.youtube.com/watch?v=${item.video_id}`"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="history-card__thumb-link"
+      @click.stop
+    >
+      <img
+        v-if="item.thumbnail_url"
+        :src="item.thumbnail_url"
+        :alt="item.title ?? 'Video thumbnail'"
+        class="history-card__thumb"
+        width="88"
+        height="50"
+        @error="($event.target as HTMLImageElement).style.display = 'none'"
+      />
+    </a>
     <div class="history-card__body">
-      <p class="history-card__title">{{ item.title ?? item.video_id }}</p>
+      <a
+        :href="`https://www.youtube.com/watch?v=${item.video_id}`"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="history-card__title-link"
+        @click.stop
+      >
+        <p class="history-card__title">{{ item.title ?? item.video_id }}</p>
+      </a>
       <p class="history-card__summary">{{ item.summary }}</p>
       <span class="history-card__date">{{ formatDate(item.created_at) }}</span>
     </div>
@@ -70,17 +86,37 @@ function handleDelete(event: Event, videoId: string) {
   border-bottom: none;
 }
 
+.history-card__thumb-link {
+  flex-shrink: 0;
+}
+
 .history-card__thumb {
   flex-shrink: 0;
   width: 88px;
   height: 50px;
   object-fit: cover;
   border-radius: 6px;
+  transition: opacity 0.15s;
+}
+
+.history-card__thumb-link:hover .history-card__thumb {
+  opacity: 0.8;
 }
 
 .history-card__body {
   flex: 1;
   min-width: 0;
+}
+
+.history-card__title-link {
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.history-card__title-link:hover .history-card__title {
+  text-decoration: underline;
 }
 
 .history-card__title {

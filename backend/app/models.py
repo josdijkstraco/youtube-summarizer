@@ -69,11 +69,19 @@ class FallacyAnalysisRequest(BaseModel):
         return v.strip()
 
 
+class SummaryStats(BaseModel):
+    chars_in: int
+    chars_out: int
+    total_tokens: int
+    generation_seconds: float
+
+
 class SummarizeResponse(BaseModel):
     summary: str
     transcript: str
     metadata: VideoMetadata | None = None
     storage_warning: bool = False
+    stats: SummaryStats | None = None
 
 
 class ErrorResponse(BaseModel):

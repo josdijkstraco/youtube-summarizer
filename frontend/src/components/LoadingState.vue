@@ -1,11 +1,15 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+withDefaults(defineProps<{ message?: string }>(), {
+  message: 'Generating summary...',
+});
+</script>
 
 <template>
   <div class="loading-state">
     <div class="loading-state__bar">
       <div class="loading-state__fill"></div>
     </div>
-    <p class="loading-state__text">Generating summary...</p>
+    <p class="loading-state__text">{{ message }}</p>
   </div>
 </template>
 

@@ -39,11 +39,19 @@ export interface FallacyAnalysisResult {
   fallacies: Fallacy[];
 }
 
+export interface SummaryStats {
+  chars_in: number;
+  chars_out: number;
+  total_tokens: number;
+  generation_seconds: number;
+}
+
 export interface SummarizeResponse {
   summary: string;
   transcript: string;
   metadata: VideoMetadata | null;
   storage_warning?: boolean;
+  stats: SummaryStats | null;
 }
 
 export interface ErrorResponse {

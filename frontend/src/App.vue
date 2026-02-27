@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import type {
   SummarizeResponse,
+  SummaryStats,
   ErrorResponse,
   VideoMetadata,
   FallacyAnalysisResult,
@@ -28,6 +29,7 @@ const transcript = ref<string | null>(null);
 const metadata = ref<VideoMetadata | null>(null);
 const fallacyAnalysis = ref<FallacyAnalysisResult | null>(null);
 const error = ref<ErrorResponse | null>(null);
+const stats = ref<SummaryStats | null>(null);
 const fallacyLoading = ref(false);
 const submittedUrl = ref<string | null>(null);
 const fallacyError = ref<ErrorResponse | null>(null);
@@ -40,6 +42,7 @@ async function handleSubmit(url: string) {
   transcript.value = null;
   metadata.value = null;
   fallacyAnalysis.value = null;
+  stats.value = null;
   error.value = null;
   fallacyError.value = null;
   submittedUrl.value = null;
@@ -52,6 +55,7 @@ async function handleSubmit(url: string) {
     summary.value = response.summary;
     transcript.value = response.transcript;
     metadata.value = response.metadata ?? null;
+    stats.value = response.stats ?? null;
     submittedUrl.value = url;
     historyPanelRef.value?.reload();
   } catch (e) {
@@ -101,6 +105,7 @@ async function handleSelectVideo(videoId: string) {
   transcript.value = null;
   metadata.value = null;
   fallacyAnalysis.value = null;
+  stats.value = null;
   error.value = null;
   fallacyError.value = null;
   submittedUrl.value = `https://www.youtube.com/watch?v=${videoId}`;
@@ -175,6 +180,7 @@ async function handleSelectVideo(videoId: string) {
           :summary="summary"
           :transcript="transcript ?? ''"
           :metadata="metadata"
+          :stats="stats"
         />
       </Transition>
       <Transition name="fade-up">
@@ -190,7 +196,7 @@ async function handleSelectVideo(videoId: string) {
           Analyze for Logical Fallacies
         </button>
       </Transition>
-      <LoadingState v-if="fallacyLoading" />
+      <LoadingState v-if="fallacyLoading" message="Analyzing for fallacies..." />
       <ErrorMessage
         v-if="fallacyError"
         :error="fallacyError"

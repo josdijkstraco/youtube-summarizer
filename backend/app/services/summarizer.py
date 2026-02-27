@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from openai import OpenAI
 
 from app.config import settings
@@ -23,6 +25,20 @@ _COMBINE_SYSTEM_PROMPT = (
 )
 
 
+@dataclass
+class OpenAIResult:
+    content: str
+    prompt_tokens: int
+    completion_tokens: int
+
+
+@dataclass
+class SummaryResult:
+    content: str
+    total_prompt_tokens: int
+    total_completion_tokens: int
+
+
 def _build_length_instruction(transcript_word_count: int, length_percent: int) -> str:
     """Build a length instruction to append to the system prompt."""
     target_words = transcript_word_count * length_percent // 100
@@ -37,7 +53,7 @@ def generate_summary(
     *,
     transcript_word_count: int | None = None,
     length_percent: int | None = None,
-) -> str:
+) -> SummaryResult:
     """Generate a summary of a YouTube video transcript using OpenAI.
 
     For transcripts exceeding the token limit, uses chunked summarization:
@@ -49,9 +65,11 @@ def generate_summary(
         length_percent: Target summary length as a percentage of transcript.
 
     Returns:
-        The generated summary string.
+        A SummaryResult with content and aggregated token counts.
     """
     client = OpenAI(api_key=settings.openai_api_key)
+    total_prompt = 0
+    total_completion = 0
 
     # Build system prompt with optional length guidance
     system_prompt = _SYSTEM_PROMPT
@@ -61,11 +79,21 @@ def generate_summary(
         )
 
     if len(transcript_text) <= _MAX_CHARS_PER_CHUNK:
-        return _call_openai(client, system_prompt, transcript_text)
+        result = _call_openai(client, system_prompt, transcript_text)
+        return SummaryResult(
+            content=result.content,
+            total_prompt_tokens=result.prompt_tokens,
+            total_completion_tokens=result.completion_tokens,
+        )
 
     # Chunked summarization for long transcripts
     chunks = _split_into_chunks(transcript_text, _MAX_CHARS_PER_CHUNK)
-    chunk_summaries = [_call_openai(client, system_prompt, chunk) for chunk in chunks]
+    chunk_contents = []
+    for chunk in chunks:
+        result = _call_openai(client, system_prompt, chunk)
+        chunk_contents.append(result.content)
+        total_prompt += result.prompt_tokens
+        total_completion += result.completion_tokens
 
     # Build combine prompt with optional length guidance
     combine_prompt = _COMBINE_SYSTEM_PROMPT
@@ -74,11 +102,19 @@ def generate_summary(
             transcript_word_count, length_percent
         )
 
-    combined = "\n\n".join(chunk_summaries)
-    return _call_openai(client, combine_prompt, combined)
+    combined = "\n\n".join(chunk_contents)
+    result = _call_openai(client, combine_prompt, combined)
+    total_prompt += result.prompt_tokens
+    total_completion += result.completion_tokens
+
+    return SummaryResult(
+        content=result.content,
+        total_prompt_tokens=total_prompt,
+        total_completion_tokens=total_completion,
+    )
 
 
-def _call_openai(client: OpenAI, system_prompt: str, user_content: str) -> str:
+def _call_openai(client: OpenAI, system_prompt: str, user_content: str) -> OpenAIResult:
     """Make a single OpenAI chat completion call."""
     response = client.chat.completions.create(
         model=_MODEL,
@@ -88,7 +124,12 @@ def _call_openai(client: OpenAI, system_prompt: str, user_content: str) -> str:
         ],
         timeout=_TIMEOUT,
     )
-    return response.choices[0].message.content or ""
+    usage = response.usage
+    return OpenAIResult(
+        content=response.choices[0].message.content or "",
+        prompt_tokens=usage.prompt_tokens if usage else 0,
+        completion_tokens=usage.completion_tokens if usage else 0,
+    )
 
 
 def _split_into_chunks(text: str, max_chars: int) -> list[str]:
