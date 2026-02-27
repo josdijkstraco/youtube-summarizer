@@ -38,3 +38,6 @@ coverage/
 
 # Type checking
 .mypy_cache/
+
+# Git worktrees
+.worktrees/
