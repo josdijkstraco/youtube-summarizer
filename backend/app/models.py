@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class SummarizeRequest(BaseModel):
@@ -69,6 +69,22 @@ class FallacyAnalysisRequest(BaseModel):
         return v.strip()
 
 
+class Highlight(BaseModel):
+    start: int
+    end: int
+
+
+class HighlightRequest(BaseModel):
+    start: int = Field(ge=0)
+    end: int = Field(ge=0)
+
+    @model_validator(mode='after')
+    def end_after_start(self) -> 'HighlightRequest':
+        if self.end <= self.start:
+            raise ValueError('end must be greater than start')
+        return self
+
+
 class SummaryStats(BaseModel):
     chars_in: int
     chars_out: int
@@ -82,6 +98,7 @@ class SummarizeResponse(BaseModel):
     metadata: VideoMetadata | None = None
     storage_warning: bool = False
     stats: SummaryStats | None = None
+    highlights: list[Highlight] = []
 
 
 class ErrorResponse(BaseModel):
@@ -98,6 +115,7 @@ class VideoRecord(BaseModel):
     summary: str
     transcript: str
     fallacy_analysis: FallacyAnalysisResult | None = None
+    highlights: list[Highlight] = []
     created_at: datetime
 
 

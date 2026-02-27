@@ -16,6 +16,7 @@ from youtube_transcript_api._errors import (
 
 from app.config import settings
 from app.db import (
+    add_highlight,
     close_pool,
     create_pool,
     create_table,
@@ -24,6 +25,7 @@ from app.db import (
     get_fallacy_analysis,
     get_full_record,
     list_recent,
+    remove_highlight,
     restore,
     save_fallacy_analysis,
     save_record,
@@ -33,6 +35,8 @@ from app.models import (
     ErrorResponse,
     FallacyAnalysisRequest,
     FallacyAnalysisResult,
+    Highlight,
+    HighlightRequest,
     HistoryItem,
     HistoryResponse,
     SummarizeRequest,
@@ -135,6 +139,42 @@ async def restore_history_item(
     return item
 
 
+@app.post("/api/history/{video_id}/highlights", response_model=None)
+async def add_highlight_endpoint(
+    video_id: str,
+    body: HighlightRequest,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> list[Highlight] | JSONResponse:
+    result = await add_highlight(conn, video_id, body.start, body.end)
+    if result is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No stored record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return result
+
+
+@app.delete("/api/history/{video_id}/highlights/{index}", response_model=None)
+async def remove_highlight_endpoint(
+    video_id: str,
+    index: int,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> list[Highlight] | JSONResponse:
+    result = await remove_highlight(conn, video_id, index)
+    if result is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No stored record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return result
+
+
 @app.post("/api/summarize", response_model=None)
 async def summarize_video(
     request: SummarizeRequest,
@@ -176,6 +216,7 @@ async def summarize_video(
             summary=existing.summary,
             transcript=existing.transcript,
             metadata=cached_metadata,
+            highlights=existing.highlights,
             storage_warning=False,
         )
 

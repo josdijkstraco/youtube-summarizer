@@ -6,6 +6,7 @@ import type {
   ErrorResponse,
   VideoMetadata,
   FallacyAnalysisResult,
+  Highlight,
 } from "@/types";
 import {
   summarizeVideo,
@@ -35,6 +36,8 @@ const submittedUrl = ref<string | null>(null);
 const fallacyError = ref<ErrorResponse | null>(null);
 const historyPanelRef = ref<InstanceType<typeof HistoryPanel> | null>(null);
 const drawerOpen = ref(false);
+const currentVideoId = ref<string | null>(null);
+const currentHighlights = ref<Highlight[]>([]);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -46,6 +49,8 @@ async function handleSubmit(url: string) {
   error.value = null;
   fallacyError.value = null;
   submittedUrl.value = null;
+  currentVideoId.value = null;
+  currentHighlights.value = [];
 
   try {
     const response: SummarizeResponse = await summarizeVideo(
@@ -57,6 +62,8 @@ async function handleSubmit(url: string) {
     metadata.value = response.metadata ?? null;
     stats.value = response.stats ?? null;
     submittedUrl.value = url;
+    currentVideoId.value = response.metadata?.video_id ?? null;
+    currentHighlights.value = response.highlights ?? [];
     historyPanelRef.value?.reload();
   } catch (e) {
     if (e instanceof ApiError) {
@@ -109,6 +116,8 @@ async function handleSelectVideo(videoId: string) {
   error.value = null;
   fallacyError.value = null;
   submittedUrl.value = `https://www.youtube.com/watch?v=${videoId}`;
+  currentVideoId.value = null;
+  currentHighlights.value = [];
 
   try {
     const record = await fetchHistoryItem(videoId);
@@ -121,6 +130,8 @@ async function handleSelectVideo(videoId: string) {
       channel_name: null,
       duration_seconds: null,
     };
+    currentVideoId.value = record.video_id;
+    currentHighlights.value = record.highlights ?? [];
     if (record.fallacy_analysis) {
       fallacyAnalysis.value = record.fallacy_analysis;
     }
@@ -181,6 +192,8 @@ async function handleSelectVideo(videoId: string) {
           :transcript="transcript ?? ''"
           :metadata="metadata"
           :stats="stats"
+          :video-id="currentVideoId"
+          :initial-highlights="currentHighlights"
         />
       </Transition>
       <Transition name="fade-up">

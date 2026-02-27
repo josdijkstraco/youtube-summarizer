@@ -4,6 +4,7 @@ import type {
   ErrorResponse,
   HistoryResponse,
   HistoryItem,
+  Highlight,
   VideoRecord,
 } from "@/types";
 
@@ -152,6 +153,63 @@ export async function restoreHistoryItem(
       errorResponse = {
         error: "internal_error",
         message: "Failed to restore video.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function addHighlight(
+  videoId: string,
+  start: number,
+  end: number,
+): Promise<Highlight[]> {
+  const response = await fetch(
+    `${API_BASE}/api/history/${videoId}/highlights`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start, end }),
+    },
+  );
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to save highlight.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function removeHighlight(
+  videoId: string,
+  index: number,
+): Promise<Highlight[]> {
+  const response = await fetch(
+    `${API_BASE}/api/history/${videoId}/highlights/${index}`,
+    { method: "DELETE" },
+  );
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to remove highlight.",
         details: null,
       };
     }

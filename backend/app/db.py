@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 import asyncpg  # type: ignore[import-untyped]
 from fastapi import Request
 
-from app.models import FallacyAnalysisResult, HistoryItem, VideoRecord
+from app.models import FallacyAnalysisResult, Highlight, HistoryItem, VideoRecord
 
 
 async def create_pool(dsn: str) -> asyncpg.Pool:
@@ -66,6 +66,23 @@ async def create_table(conn: asyncpg.Connection) -> None:
             ) THEN
                 ALTER TABLE youtube_summarizer.summaries
                 ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
+            END IF;
+        END $$;
+        """
+    )
+    # Add highlights column to existing tables if it doesn't exist
+    await conn.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'highlights'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN highlights JSONB DEFAULT '[]'::jsonb;
             END IF;
         END $$;
         """
@@ -142,6 +159,14 @@ def _parse_video_record(row: asyncpg.Record | None) -> VideoRecord | None:
         if isinstance(raw, str):
             raw = json.loads(raw)
         data["fallacy_analysis"] = FallacyAnalysisResult(**raw)
+    # Parse highlights JSON
+    if data.get("highlights"):
+        raw = data["highlights"]
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+        data["highlights"] = [Highlight(**h) for h in raw]
+    else:
+        data["highlights"] = []
     return VideoRecord(**data)
 
 
@@ -205,3 +230,71 @@ async def restore(conn: asyncpg.Connection, video_id: str) -> HistoryItem | None
     if row is None:
         return None
     return HistoryItem(**dict(row))
+
+
+def _merge_highlights(highlights: list[Highlight]) -> list[Highlight]:
+    """Sort and merge overlapping/adjacent highlight ranges."""
+    if not highlights:
+        return []
+    sorted_hl = sorted(highlights, key=lambda h: h.start)
+    merged: list[Highlight] = [sorted_hl[0]]
+    for hl in sorted_hl[1:]:
+        last = merged[-1]
+        if hl.start <= last.end:
+            merged[-1] = Highlight(start=last.start, end=max(last.end, hl.end))
+        else:
+            merged.append(hl)
+    return merged
+
+
+async def add_highlight(
+    conn: asyncpg.Connection,
+    video_id: str,
+    start: int,
+    end: int,
+) -> list[Highlight] | None:
+    """Add a highlight to a video record. Returns updated list or None if not found."""
+    row = await conn.fetchrow(
+        "SELECT highlights FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
+    if row is None:
+        return None
+    raw = row["highlights"]
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    current = [Highlight(**h) for h in (raw or [])]
+    current.append(Highlight(start=start, end=end))
+    merged = _merge_highlights(current)
+    await conn.execute(
+        "UPDATE youtube_summarizer.summaries SET highlights = $2 WHERE video_id = $1",
+        video_id,
+        json.dumps([h.model_dump() for h in merged]),
+    )
+    return merged
+
+
+async def remove_highlight(
+    conn: asyncpg.Connection,
+    video_id: str,
+    index: int,
+) -> list[Highlight] | None:
+    """Remove a highlight by index. Returns updated list or None if not found."""
+    row = await conn.fetchrow(
+        "SELECT highlights FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
+    if row is None:
+        return None
+    raw = row["highlights"]
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    current = [Highlight(**h) for h in (raw or [])]
+    if 0 <= index < len(current):
+        current.pop(index)
+    await conn.execute(
+        "UPDATE youtube_summarizer.summaries SET highlights = $2 WHERE video_id = $1",
+        video_id,
+        json.dumps([h.model_dump() for h in current]),
+    )
+    return current

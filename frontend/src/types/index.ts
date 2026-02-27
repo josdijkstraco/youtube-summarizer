@@ -39,6 +39,11 @@ export interface FallacyAnalysisResult {
   fallacies: Fallacy[];
 }
 
+export interface Highlight {
+  start: number;
+  end: number;
+}
+
 export interface SummaryStats {
   chars_in: number;
   chars_out: number;
@@ -52,6 +57,7 @@ export interface SummarizeResponse {
   metadata: VideoMetadata | null;
   storage_warning?: boolean;
   stats: SummaryStats | null;
+  highlights?: Highlight[];
 }
 
 export interface ErrorResponse {
@@ -81,5 +87,6 @@ export interface VideoRecord {
   summary: string;
   transcript: string;
   fallacy_analysis: FallacyAnalysisResult | null;
+  highlights: Highlight[];
   created_at: string;
 }

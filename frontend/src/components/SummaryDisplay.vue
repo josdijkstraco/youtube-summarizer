@@ -1,15 +1,38 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import type { VideoMetadata, SummaryStats } from "@/types";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import type { VideoMetadata, SummaryStats, Highlight } from "@/types";
+import { addHighlight, removeHighlight } from "@/services/api";
 
-defineProps<{
+const props = defineProps<{
   summary: string;
   transcript: string;
   metadata?: VideoMetadata | null;
   stats?: SummaryStats | null;
+  videoId?: string | null;
+  initialHighlights?: Highlight[];
 }>();
 
 const activeTab = ref<"summary" | "transcript">("summary");
+const highlights = ref<Highlight[]>(props.initialHighlights ?? []);
+const contentEl = ref<HTMLElement | null>(null);
+
+interface Popover {
+  type: "add" | "remove";
+  x: number;
+  y: number;
+  start?: number;
+  end?: number;
+  index?: number;
+}
+const popover = ref<Popover | null>(null);
+
+// Reset highlights when initialHighlights prop changes (e.g. new video loaded)
+watch(
+  () => props.initialHighlights,
+  (val) => {
+    highlights.value = val ?? [];
+  },
+);
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -18,6 +41,248 @@ function formatDuration(seconds: number): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function mergeHighlights(hl: Highlight[]): Highlight[] {
+  if (!hl.length) return [];
+  const sorted = [...hl].sort((a, b) => a.start - b.start);
+  const merged: Highlight[] = [{ ...sorted[0] }];
+  for (const h of sorted.slice(1)) {
+    const last = merged[merged.length - 1];
+    if (h.start <= last.end) {
+      last.end = Math.max(last.end, h.end);
+    } else {
+      merged.push({ ...h });
+    }
+  }
+  return merged;
+}
+
+// Build HTML for the summary with <mark> tags around highlights.
+// Paragraphs are split on \n\n; each boundary adds 2 chars to offsets.
+const highlightedSummaryHtml = computed(() => {
+  const text = props.summary;
+  const merged = mergeHighlights(highlights.value);
+
+  if (!merged.length) {
+    const paras = text
+      .split("\n\n")
+      .map((p) => `<p class="summary-display__paragraph">${escapeHtml(p)}</p>`)
+      .join("");
+    return paras;
+  }
+
+  // Build events map: position → {opens: index[], closes: index[]}
+  const openAt = new Map<number, number[]>();
+  const closeAt = new Map<number, number[]>();
+
+  merged.forEach((hl, idx) => {
+    if (!openAt.has(hl.start)) openAt.set(hl.start, []);
+    openAt.get(hl.start)!.push(idx);
+    if (!closeAt.has(hl.end)) closeAt.set(hl.end, []);
+    closeAt.get(hl.end)!.push(idx);
+  });
+
+  let html = "";
+  const paragraphs = text.split("\n\n");
+  let charOffset = 0;
+
+  paragraphs.forEach((para, paraIdx) => {
+    if (paraIdx > 0) {
+      charOffset += 2; // account for \n\n separator
+    }
+
+    let paraHtml = "";
+    for (let i = 0; i < para.length; i++) {
+      const pos = charOffset + i;
+      const closes = closeAt.get(pos);
+      if (closes) {
+        for (let k = 0; k < closes.length; k++) {
+          paraHtml += "</mark>";
+        }
+      }
+      const opens = openAt.get(pos);
+      if (opens) {
+        for (let k = 0; k < opens.length; k++) {
+          paraHtml += `<mark class="summary-highlight" data-highlight-index="${opens[k]}">`;
+        }
+      }
+      paraHtml += escapeHtml(para[i]);
+    }
+
+    // Close marks that end at the paragraph boundary
+    const endPos = charOffset + para.length;
+    const closesAtEnd = closeAt.get(endPos);
+    if (closesAtEnd) {
+      for (let k = 0; k < closesAtEnd.length; k++) {
+        paraHtml += "</mark>";
+      }
+    }
+
+    charOffset += para.length;
+    html += `<p class="summary-display__paragraph">${paraHtml}</p>`;
+  });
+
+  return html;
+});
+
+// Convert a DOM selection within contentEl to character offsets in the summary string.
+// Each \n\n paragraph separator = 2 chars. DOM has <p> elements per paragraph.
+function domSelectionToStringOffsets(
+  container: HTMLElement,
+  sel: Selection,
+): { start: number; end: number } {
+  const range = sel.getRangeAt(0);
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+
+  let textOffset = 0;
+  let paraBreakOffset = 0;
+  let prevPara: Element | null = null;
+  let start = 0;
+  let end = 0;
+  let startFound = false;
+  let endFound = false;
+
+  let node = walker.nextNode();
+  while (node !== null) {
+    const textNode = node as Text;
+
+    // Find the nearest <p> ancestor
+    let parentPara: Element | null = null;
+    let el: Node | null = textNode.parentNode;
+    while (el !== null && el !== container) {
+      if ((el as Element).tagName === "P") {
+        parentPara = el as Element;
+        break;
+      }
+      el = el.parentNode;
+    }
+
+    // Crossed a paragraph boundary → add 2 for \n\n
+    if (parentPara !== prevPara) {
+      if (prevPara !== null) {
+        paraBreakOffset += 2;
+      }
+      prevPara = parentPara;
+    }
+
+    const offset = textOffset + paraBreakOffset;
+
+    if (!startFound && textNode === range.startContainer) {
+      start = offset + range.startOffset;
+      startFound = true;
+    }
+    if (!endFound && textNode === range.endContainer) {
+      end = offset + range.endOffset;
+      endFound = true;
+    }
+
+    textOffset += textNode.length;
+
+    if (startFound && endFound) break;
+    node = walker.nextNode();
+  }
+
+  return { start, end };
+}
+
+function onSummaryMouseUp(e: MouseEvent) {
+  // Mark clicks are handled separately
+  if ((e.target as HTMLElement).closest(".summary-highlight")) return;
+  if (!props.videoId || activeTab.value !== "summary") return;
+
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !contentEl.value) {
+    popover.value = null;
+    return;
+  }
+
+  const { start, end } = domSelectionToStringOffsets(contentEl.value, sel);
+  if (start >= end) {
+    popover.value = null;
+    return;
+  }
+
+  const rect = sel.getRangeAt(0).getBoundingClientRect();
+  popover.value = {
+    type: "add",
+    x: rect.left + rect.width / 2,
+    y: rect.top - 8,
+    start,
+    end,
+  };
+}
+
+function onMarkClick(e: MouseEvent) {
+  if (!props.videoId || activeTab.value !== "summary") return;
+
+  const mark = (e.target as HTMLElement).closest(
+    "[data-highlight-index]",
+  ) as HTMLElement | null;
+  if (!mark) return;
+
+  e.stopPropagation();
+  const index = parseInt(mark.getAttribute("data-highlight-index")!);
+  const rect = mark.getBoundingClientRect();
+  popover.value = {
+    type: "remove",
+    x: rect.left + rect.width / 2,
+    y: rect.top - 8,
+    index,
+  };
+}
+
+async function handleSaveHighlight() {
+  if (!props.videoId || !popover.value || popover.value.type !== "add") return;
+  const { start, end } = popover.value;
+  if (start == null || end == null) return;
+  highlights.value = await addHighlight(props.videoId, start, end);
+  popover.value = null;
+  window.getSelection()?.removeAllRanges();
+}
+
+async function handleRemoveHighlight() {
+  if (
+    !props.videoId ||
+    !popover.value ||
+    popover.value.type !== "remove" ||
+    popover.value.index == null
+  )
+    return;
+  highlights.value = await removeHighlight(props.videoId, popover.value.index);
+  popover.value = null;
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === "Escape") popover.value = null;
+}
+
+function onDocumentClick(e: MouseEvent) {
+  const target = e.target as HTMLElement;
+  if (
+    !target.closest(".highlight-popover") &&
+    !target.closest(".summary-highlight")
+  ) {
+    popover.value = null;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("keydown", onKeyDown);
+  document.addEventListener("click", onDocumentClick, true);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", onKeyDown);
+  document.removeEventListener("click", onDocumentClick, true);
+});
 </script>
 
 <template>
@@ -98,18 +363,58 @@ function formatDuration(seconds: number): string {
         Transcript
       </button>
     </div>
-    <div class="summary-display__content">
+    <div
+      ref="contentEl"
+      class="summary-display__content"
+      @mouseup="onSummaryMouseUp"
+      @click="onMarkClick"
+    >
       <template v-if="activeTab === 'summary'">
-        <p
-          v-for="(paragraph, index) in summary.split('\n\n')"
-          :key="index"
-          class="summary-display__paragraph"
-        >
-          {{ paragraph }}
-        </p>
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div v-html="highlightedSummaryHtml" />
       </template>
       <p v-else class="summary-display__transcript">{{ transcript }}</p>
     </div>
+
+    <!-- Highlight popover — teleported to body to avoid clipping -->
+    <Teleport to="body">
+      <div
+        v-if="popover"
+        class="highlight-popover"
+        :style="{
+          left: `${popover.x}px`,
+          top: `${popover.y}px`,
+        }"
+      >
+        <template v-if="popover.type === 'add'">
+          <button
+            class="highlight-popover__btn highlight-popover__btn--add"
+            @click.stop="handleSaveHighlight"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" opacity="0.15"/>
+              <rect x="3" y="11" width="18" height="2"/>
+              <rect x="11" y="3" width="2" height="18"/>
+            </svg>
+            Save highlight
+          </button>
+        </template>
+        <template v-else>
+          <button
+            class="highlight-popover__btn highlight-popover__btn--remove"
+            @click.stop="handleRemoveHighlight"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4h6v2" />
+            </svg>
+            Remove highlight
+          </button>
+        </template>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -258,6 +563,17 @@ function formatDuration(seconds: number): string {
   font-size: 0.95rem;
 }
 
+.summary-display__transcript {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: #5A5A5A;
+}
+</style>
+
+<style>
+/* Global styles for v-html content and teleported popover */
 .summary-display__paragraph {
   margin: 0 0 1rem;
   white-space: pre-wrap;
@@ -267,11 +583,63 @@ function formatDuration(seconds: number): string {
   margin-bottom: 0;
 }
 
-.summary-display__transcript {
-  margin: 0;
-  white-space: pre-wrap;
-  font-size: 0.875rem;
-  line-height: 1.75;
-  color: #5A5A5A;
+.summary-highlight {
+  background: #FFF3A3;
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.summary-highlight:hover {
+  background: #FFE566;
+}
+
+.highlight-popover {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  margin-top: -6px;
+  z-index: 9999;
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.highlight-popover__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.highlight-popover__btn--add {
+  background: #FFF3A3;
+  color: #6B5E00;
+}
+
+.highlight-popover__btn--add:hover {
+  background: #FFE566;
+}
+
+.highlight-popover__btn--remove {
+  background: #FEE8E8;
+  color: #8B2020;
+}
+
+.highlight-popover__btn--remove:hover {
+  background: #FFC9C9;
 }
 </style>
