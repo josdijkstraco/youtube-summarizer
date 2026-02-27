@@ -265,6 +265,11 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 function onDocumentClick(e: MouseEvent) {
+  // Don't dismiss when user just finished selecting text — the click fires
+  // right after mouseup and the selection is still non-collapsed.
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed) return;
+
   const target = e.target as HTMLElement;
   if (
     !target.closest(".highlight-popover") &&
