@@ -90,3 +90,18 @@ export interface VideoRecord {
   highlights: Highlight[];
   created_at: string;
 }
+
+export interface QaMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AskRequest {
+  transcript: string;
+  question: string;
+  history: QaMessage[];
+}
+
+export interface AskResponse {
+  answer: string;
+}

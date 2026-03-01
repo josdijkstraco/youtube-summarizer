@@ -32,6 +32,8 @@ from app.db import (
     soft_delete,
 )
 from app.models import (
+    AskRequest,
+    AskResponse,
     ErrorResponse,
     FallacyAnalysisRequest,
     FallacyAnalysisResult,
@@ -46,6 +48,7 @@ from app.models import (
     VideoRecord,
 )
 from app.services.fallacy_analyzer import analyze_fallacies
+from app.services.qa import ask_question
 from app.services.summarizer import generate_summary
 from app.services.transcript import calculate_duration, get_transcript
 from app.services.youtube import extract_video_id, get_video_metadata
@@ -396,3 +399,13 @@ async def analyze_video_fallacies(
         logger.warning("Failed to save fallacy analysis for %s", video_id)
 
     return result
+
+
+@app.post("/api/ask", response_model=AskResponse)
+async def ask(request: AskRequest) -> AskResponse:
+    answer = await ask_question(
+        transcript=request.transcript,
+        question=request.question,
+        history=[m.model_dump() for m in request.history],
+    )
+    return AskResponse(answer=answer)

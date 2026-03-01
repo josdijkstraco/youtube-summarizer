@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -130,3 +131,18 @@ class HistoryItem(BaseModel):
 
 class HistoryResponse(BaseModel):
     items: list[HistoryItem]
+
+
+class QaMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class AskRequest(BaseModel):
+    transcript: str
+    question: str
+    history: list[QaMessage] = []
+
+
+class AskResponse(BaseModel):
+    answer: str

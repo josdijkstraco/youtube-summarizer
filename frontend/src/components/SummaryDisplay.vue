@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
-import type { VideoMetadata, SummaryStats, Highlight } from "@/types";
-import { addHighlight, removeHighlight } from "@/services/api";
+import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
+import { addHighlight, removeHighlight, askQuestion } from "@/services/api";
 
 const props = defineProps<{
   summary: string;
@@ -12,7 +12,7 @@ const props = defineProps<{
   initialHighlights?: Highlight[];
 }>();
 
-const activeTab = ref<"summary" | "transcript">("summary");
+const activeTab = ref<"summary" | "transcript" | "qa">("summary");
 const highlights = ref<Highlight[]>(props.initialHighlights ?? []);
 const contentEl = ref<HTMLElement | null>(null);
 
@@ -26,11 +26,55 @@ interface Popover {
 }
 const popover = ref<Popover | null>(null);
 
+// Q&A state
+const qaHistory = ref<QaMessage[]>([]);
+const qaInput = ref("");
+const qaLoading = ref(false);
+const qaError = ref<string | null>(null);
+const qaMessagesEl = ref<HTMLElement | null>(null);
+
+async function sendQuestion() {
+  const question = qaInput.value.trim();
+  if (!question || qaLoading.value) return;
+
+  const priorHistory = [...qaHistory.value];
+  qaHistory.value = [...priorHistory, { role: "user", content: question }];
+  qaInput.value = "";
+  qaLoading.value = true;
+  qaError.value = null;
+
+  try {
+    const { answer } = await askQuestion(props.transcript, question, priorHistory);
+    qaHistory.value = [...qaHistory.value, { role: "assistant", content: answer }];
+  } catch (err) {
+    qaError.value = err instanceof Error ? err.message : "Failed to get answer.";
+  } finally {
+    qaLoading.value = false;
+  }
+}
+
+function onQaKeydown(e: KeyboardEvent) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendQuestion();
+  }
+}
+
 // Reset highlights when initialHighlights prop changes (e.g. new video loaded)
 watch(
   () => props.initialHighlights,
   (val) => {
     highlights.value = val ?? [];
+  },
+);
+
+// Reset Q&A history when transcript changes (new video loaded)
+watch(
+  () => props.transcript,
+  () => {
+    qaHistory.value = [];
+    qaInput.value = "";
+    qaError.value = null;
   },
 );
 
@@ -367,8 +411,18 @@ onUnmounted(() => {
       >
         Transcript
       </button>
+      <button
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'qa' },
+        ]"
+        @click="activeTab = 'qa'"
+      >
+        Q&amp;A
+      </button>
     </div>
     <div
+      v-if="activeTab !== 'qa'"
       ref="contentEl"
       class="summary-display__content"
       @mouseup="onSummaryMouseUp"
@@ -379,6 +433,44 @@ onUnmounted(() => {
         <div v-html="highlightedSummaryHtml" />
       </template>
       <p v-else class="summary-display__transcript">{{ transcript }}</p>
+    </div>
+
+    <!-- Q&A panel -->
+    <div v-if="activeTab === 'qa'" class="summary-display__qa">
+      <div ref="qaMessagesEl" class="summary-display__qa-messages">
+        <div
+          v-for="(msg, i) in qaHistory"
+          :key="i"
+          :class="['qa-message', `qa-message--${msg.role}`]"
+        >
+          <div class="qa-message__bubble">{{ msg.content }}</div>
+        </div>
+        <div v-if="qaLoading" class="qa-message qa-message--assistant">
+          <div class="qa-message__bubble qa-message__bubble--loading">
+            <span class="qa-loading-dot" />
+            <span class="qa-loading-dot" />
+            <span class="qa-loading-dot" />
+          </div>
+        </div>
+        <p v-if="qaError" class="qa-error">{{ qaError }}</p>
+      </div>
+      <div class="summary-display__qa-input">
+        <textarea
+          v-model="qaInput"
+          class="qa-textarea"
+          placeholder="Ask a question about this video…"
+          rows="2"
+          :disabled="qaLoading"
+          @keydown="onQaKeydown"
+        />
+        <button
+          class="qa-send-btn"
+          :disabled="!qaInput.trim() || qaLoading"
+          @click="sendQuestion"
+        >
+          Send
+        </button>
+      </div>
     </div>
 
     <!-- Highlight popover — teleported to body to avoid clipping -->
@@ -574,6 +666,140 @@ onUnmounted(() => {
   font-size: 0.875rem;
   line-height: 1.75;
   color: #4B5563;
+}
+
+/* Q&A panel */
+.summary-display__qa {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+}
+
+.summary-display__qa-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summary-display__qa-input {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem 1.25rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  align-items: flex-end;
+}
+
+.qa-textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: 'Manrope', sans-serif;
+  line-height: 1.5;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.qa-textarea:focus {
+  border-color: #2563EB;
+}
+
+.qa-textarea:disabled {
+  opacity: 0.6;
+}
+
+.qa-send-btn {
+  padding: 0.5rem 1rem;
+  background: #2563EB;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.qa-send-btn:hover:not(:disabled) {
+  background: #1D4ED8;
+}
+
+.qa-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qa-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #B91C1C;
+}
+
+/* Chat messages */
+.qa-message {
+  display: flex;
+}
+
+.qa-message--user {
+  justify-content: flex-end;
+}
+
+.qa-message--assistant {
+  justify-content: flex-start;
+}
+
+.qa-message__bubble {
+  max-width: 80%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.qa-message--user .qa-message__bubble {
+  background: #2563EB;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.qa-message--assistant .qa-message__bubble {
+  background: #F3F4F6;
+  color: #111827;
+  border-bottom-left-radius: 4px;
+}
+
+/* Loading dots */
+.qa-message__bubble--loading {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+}
+
+.qa-loading-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #9CA3AF;
+  animation: qa-dot-bounce 1.2s infinite;
+}
+
+.qa-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+.qa-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes qa-dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-5px); }
 }
 </style>
 

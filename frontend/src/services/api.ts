@@ -6,6 +6,8 @@ import type {
   HistoryItem,
   Highlight,
   VideoRecord,
+  QaMessage,
+  AskResponse,
 } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -210,6 +212,34 @@ export async function removeHighlight(
       errorResponse = {
         error: "internal_error",
         message: "Failed to remove highlight.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function askQuestion(
+  transcript: string,
+  question: string,
+  history: QaMessage[],
+): Promise<AskResponse> {
+  const response = await fetch(`${API_BASE}/api/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript, question, history }),
+  });
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to get answer.",
         details: null,
       };
     }
