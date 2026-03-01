@@ -469,7 +469,7 @@ onUnmounted(() => {
   margin: 0 0 0.3rem;
   font-size: 1rem;
   font-weight: 600;
-  color: #2C2C2C;
+  color: #111827;
   line-height: 1.35;
 }
 
@@ -490,12 +490,12 @@ onUnmounted(() => {
 
 .summary-display__channel {
   font-size: 0.8rem;
-  color: #8A8578;
+  color: #6B7280;
 }
 
 .summary-display__duration {
   font-size: 0.8rem;
-  color: #B8B2A6;
+  color: #9CA3AF;
   font-variant-numeric: tabular-nums;
 }
 
@@ -518,16 +518,16 @@ onUnmounted(() => {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #B8B2A6;
-  font-family: 'DM Sans', sans-serif;
+  color: #9CA3AF;
+  font-family: 'Manrope', sans-serif;
 }
 
 .summary-display__stat-value {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #2C2C2C;
+  color: #111827;
   font-variant-numeric: tabular-nums;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
 }
 
 .summary-display__tabs {
@@ -546,25 +546,25 @@ onUnmounted(() => {
   margin-bottom: -1px;
   font-size: 0.85rem;
   font-weight: 500;
-  font-family: 'DM Sans', sans-serif;
-  color: #B8B2A6;
+  font-family: 'Manrope', sans-serif;
+  color: #9CA3AF;
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s;
 }
 
 .summary-display__tab:hover {
-  color: #2C2C2C;
+  color: #111827;
 }
 
 .summary-display__tab.is-active {
-  color: #2C2C2C;
-  border-bottom-color: #C45D3E;
+  color: #111827;
+  border-bottom-color: #2563EB;
 }
 
 .summary-display__content {
   padding: 1.5rem;
   line-height: 1.75;
-  color: #3D3D3D;
+  color: #374151;
   font-size: 0.95rem;
 }
 
@@ -573,7 +573,7 @@ onUnmounted(() => {
   white-space: pre-wrap;
   font-size: 0.875rem;
   line-height: 1.75;
-  color: #5A5A5A;
+  color: #4B5563;
 }
 </style>
 
@@ -589,7 +589,7 @@ onUnmounted(() => {
 }
 
 .summary-highlight {
-  background: #FFF3A3;
+  background: #DBEAFE;
   border-radius: 2px;
   padding: 0 1px;
   cursor: pointer;
@@ -597,7 +597,7 @@ onUnmounted(() => {
 }
 
 .summary-highlight:hover {
-  background: #FFE566;
+  background: #BFDBFE;
 }
 
 .highlight-popover {
@@ -624,19 +624,19 @@ onUnmounted(() => {
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 500;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
 }
 
 .highlight-popover__btn--add {
-  background: #FFF3A3;
-  color: #6B5E00;
+  background: #DBEAFE;
+  color: #1E40AF;
 }
 
 .highlight-popover__btn--add:hover {
-  background: #FFE566;
+  background: #BFDBFE;
 }
 
 .highlight-popover__btn--remove {

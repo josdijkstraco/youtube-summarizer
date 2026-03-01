@@ -27,7 +27,7 @@ withDefaults(defineProps<{ message?: string }>(), {
 .loading-state__bar {
   width: 100%;
   height: 3px;
-  background: #E8E5DE;
+  background: #E5E7EB;
   border-radius: 2px;
   overflow: hidden;
 }
@@ -35,7 +35,7 @@ withDefaults(defineProps<{ message?: string }>(), {
 .loading-state__fill {
   width: 40%;
   height: 100%;
-  background: #C45D3E;
+  background: #2563EB;
   border-radius: 2px;
   animation: slide 1.4s ease-in-out infinite;
 }
@@ -47,7 +47,7 @@ withDefaults(defineProps<{ message?: string }>(), {
 
 .loading-state__text {
   font-size: 0.85rem;
-  color: #8A8578;
+  color: #6B7280;
   letter-spacing: 0.02em;
 }
 </style>

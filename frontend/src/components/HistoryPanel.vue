@@ -160,10 +160,10 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 }
 
 .history-panel__heading h2 {
-  font-family: 'Instrument Serif', serif;
+  font-family: 'Syne', sans-serif;
   font-size: 1.15rem;
-  font-weight: 400;
-  color: #2C2C2C;
+  font-weight: 600;
+  color: #111827;
   margin: 0;
 }
 
@@ -177,25 +177,25 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   background: none;
   border: none;
   border-radius: 6px;
-  color: #8A8578;
+  color: #6B7280;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .history-panel__close:hover {
-  background: #F0EDE7;
-  color: #2C2C2C;
+  background: #F3F4F6;
+  color: #111827;
 }
 
 .history-panel__status {
   padding: 1.5rem 1.25rem;
   font-size: 0.85rem;
-  color: #8A8578;
+  color: #6B7280;
   text-align: center;
 }
 
 .history-panel__status--error {
-  color: #C45D3E;
+  color: #DC2626;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -204,18 +204,18 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 
 .history-panel__retry {
   padding: 0.35rem 0.85rem;
-  background: #C45D3E;
+  background: #2563EB;
   color: #FFFFFF;
   border: none;
   border-radius: 100px;
   font-size: 0.75rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .history-panel__retry:hover {
-  background: #A84D33;
+  background: #1D4ED8;
 }
 
 .history-panel__list {
@@ -231,7 +231,7 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  background: #2C2C2C;
+  background: #111827;
   color: #FFFFFF;
   font-size: 0.8rem;
   border-radius: 0 0 12px 12px;
@@ -244,7 +244,7 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   border-radius: 100px;
   color: #FFFFFF;
   font-size: 0.75rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }

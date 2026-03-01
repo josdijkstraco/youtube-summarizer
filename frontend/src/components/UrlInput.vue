@@ -66,28 +66,28 @@ function handleSubmit() {
 }
 
 .url-input__wrapper:focus-within {
-  border-color: rgba(196, 93, 62, 0.3);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(196, 93, 62, 0.06);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(37, 99, 235, 0.08);
 }
 
 .url-input__icon {
   flex-shrink: 0;
-  color: #B8B2A6;
+  color: #9CA3AF;
 }
 
 .url-input__field {
   flex: 1;
   padding: 0.6rem 0;
   font-size: 0.95rem;
-  font-family: 'DM Sans', sans-serif;
-  color: #2C2C2C;
+  font-family: 'Manrope', sans-serif;
+  color: #111827;
   border: none;
   outline: none;
   background: transparent;
 }
 
 .url-input__field::placeholder {
-  color: #B8B2A6;
+  color: #9CA3AF;
 }
 
 .url-input__field:disabled {
@@ -99,9 +99,9 @@ function handleSubmit() {
   padding: 0.65rem 1.5rem;
   font-size: 0.9rem;
   font-weight: 500;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   color: #FFFFFF;
-  background: #2C2C2C;
+  background: #111827;
   border: none;
   border-radius: 100px;
   cursor: pointer;
@@ -110,7 +110,7 @@ function handleSubmit() {
 }
 
 .url-input__button:not(:disabled):hover {
-  background: #1A1A1A;
+  background: #030712;
 }
 
 .url-input__button:disabled {

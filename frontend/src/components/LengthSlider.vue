@@ -55,7 +55,7 @@ function onInput(event: Event) {
 .length-slider__label {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #8A8578;
+  color: #6B7280;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -63,7 +63,7 @@ function onInput(event: Event) {
 .length-slider__value {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #2C2C2C;
+  color: #111827;
   font-variant-numeric: tabular-nums;
 }
 
@@ -72,7 +72,7 @@ function onInput(event: Event) {
   appearance: none;
   width: 100%;
   height: 4px;
-  background: #E8E5DE;
+  background: #E5E7EB;
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -83,9 +83,9 @@ function onInput(event: Event) {
   appearance: none;
   width: 18px;
   height: 18px;
-  background: #2C2C2C;
+  background: #2563EB;
   border-radius: 50%;
-  border: 3px solid #FAF9F6;
+  border: 3px solid #F9FAFB;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: transform 0.15s ease;
@@ -98,9 +98,9 @@ function onInput(event: Event) {
 .length-slider__input::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  background: #2C2C2C;
+  background: #2563EB;
   border-radius: 50%;
-  border: 3px solid #FAF9F6;
+  border: 3px solid #F9FAFB;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
 }
@@ -114,7 +114,7 @@ function onInput(event: Event) {
   display: flex;
   justify-content: space-between;
   font-size: 0.7rem;
-  color: #B8B2A6;
+  color: #9CA3AF;
   letter-spacing: 0.02em;
 }
 </style>

@@ -62,16 +62,16 @@ defineProps<{
 }
 
 .fallacy-summary-panel__count {
-  font-family: 'Instrument Serif', serif;
+  font-family: 'Syne', sans-serif;
   font-size: 2rem;
-  font-weight: 400;
-  color: #2C2C2C;
+  font-weight: 700;
+  color: #111827;
   line-height: 1;
 }
 
 .fallacy-summary-panel__label {
   font-size: 0.85rem;
-  color: #8A8578;
+  color: #6B7280;
 }
 
 .fallacy-summary-panel__breakdown {
@@ -88,28 +88,28 @@ defineProps<{
 }
 
 .fallacy-summary-panel__severity--high {
-  color: #C45D3E;
-  background: rgba(196, 93, 62, 0.1);
+  color: #DC2626;
+  background: rgba(220, 38, 38, 0.1);
 }
 
 .fallacy-summary-panel__severity--medium {
-  color: #D4913A;
-  background: rgba(212, 145, 58, 0.1);
+  color: #D97706;
+  background: rgba(217, 119, 6, 0.1);
 }
 
 .fallacy-summary-panel__severity--low {
-  color: #8A7A3A;
-  background: rgba(184, 168, 78, 0.1);
+  color: #65A30D;
+  background: rgba(101, 163, 13, 0.1);
 }
 
 .fallacy-summary-panel__tactics {
   font-size: 0.85rem;
-  color: #3D3D3D;
+  color: #374151;
   line-height: 1.5;
 }
 
 .fallacy-summary-panel__tactics-label {
   font-weight: 600;
-  color: #8A8578;
+  color: #6B7280;
 }
 </style>

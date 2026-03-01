@@ -79,7 +79,7 @@ function handleDelete(event: Event, videoId: string) {
 }
 
 .history-card:hover {
-  background: #FAF9F6;
+  background: #F9FAFB;
 }
 
 .history-card:last-child {
@@ -123,7 +123,7 @@ function handleDelete(event: Event, videoId: string) {
   margin: 0 0 0.2rem;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #2C2C2C;
+  color: #111827;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -133,7 +133,7 @@ function handleDelete(event: Event, videoId: string) {
 .history-card__summary {
   margin: 0;
   font-size: 0.775rem;
-  color: #8A8578;
+  color: #6B7280;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -143,7 +143,7 @@ function handleDelete(event: Event, videoId: string) {
 
 .history-card__date {
   font-size: 0.675rem;
-  color: #B8B2A6;
+  color: #9CA3AF;
   margin-top: 0.2rem;
   display: inline-block;
 }
@@ -161,7 +161,7 @@ function handleDelete(event: Event, videoId: string) {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 4px;
-  color: #B8B2A6;
+  color: #9CA3AF;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
@@ -172,9 +172,9 @@ function handleDelete(event: Event, videoId: string) {
 }
 
 .history-card__delete:hover {
-  color: #C45D3E;
-  background: #FFF5F3;
-  border-color: rgba(196, 93, 62, 0.2);
+  color: #DC2626;
+  background: #FEF2F2;
+  border-color: rgba(220, 38, 38, 0.2);
 }
 
 /* Always show on touch devices */

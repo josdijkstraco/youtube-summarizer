@@ -264,12 +264,12 @@ async function handleSelectVideo(videoId: string) {
 }
 
 .drawer-tab:hover {
-  background: #F5F4F0;
+  background: #F3F4F6;
   box-shadow: 2px 2px 16px rgba(0, 0, 0, 0.07);
 }
 
 .drawer-tab__icon {
-  color: #8A8578;
+  color: #6B7280;
 }
 
 .drawer-tab__label {
@@ -277,15 +277,15 @@ async function handleSelectVideo(videoId: string) {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8A8578;
+  color: #6B7280;
   writing-mode: vertical-rl;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
 }
 
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(44, 44, 44, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(2px);
   z-index: 999;
   opacity: 0;
@@ -338,23 +338,23 @@ async function handleSelectVideo(videoId: string) {
 }
 
 .app-title {
-  font-family: 'Instrument Serif', serif;
+  font-family: 'Syne', sans-serif;
   font-size: 3.25rem;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1.1;
-  color: #2C2C2C;
-  letter-spacing: -0.01em;
+  color: #111827;
+  letter-spacing: -0.02em;
 }
 
 .app-title__accent {
-  color: #C45D3E;
+  color: #2563EB;
 }
 
 .app-subtitle {
   margin-top: 0.75rem;
   font-size: 1.05rem;
   font-weight: 300;
-  color: #8A8578;
+  color: #6B7280;
   letter-spacing: 0.02em;
 }
 
@@ -373,19 +373,19 @@ async function handleSelectVideo(videoId: string) {
   gap: 0.5rem;
   padding: 0.75rem 1.75rem;
   background: transparent;
-  color: #C45D3E;
-  border: 1.5px solid #C45D3E;
+  color: #2563EB;
+  border: 1.5px solid #2563EB;
   border-radius: 100px;
   font-size: 0.9rem;
   font-weight: 500;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   cursor: pointer;
   transition: all 0.25s ease;
   letter-spacing: 0.01em;
 }
 
 .analyze-button:hover {
-  background: #C45D3E;
+  background: #2563EB;
   color: #FFFFFF;
 }
 
