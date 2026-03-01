@@ -28,6 +28,7 @@ from app.db import (
     remove_highlight,
     restore,
     save_fallacy_analysis,
+    save_qa_history,
     save_record,
     soft_delete,
 )
@@ -402,10 +403,18 @@ async def analyze_video_fallacies(
 
 
 @app.post("/api/ask", response_model=AskResponse)
-async def ask(request: AskRequest) -> AskResponse:
+async def ask(request: AskRequest, conn: asyncpg.Connection = Depends(get_db)) -> AskResponse:  # noqa: B008
     answer = await ask_question(
         transcript=request.transcript,
         question=request.question,
         history=[m.model_dump() for m in request.history],
     )
+    if request.video_id:
+        full_history = [m.model_dump() for m in request.history]
+        full_history.append({"role": "user", "content": request.question})
+        full_history.append({"role": "assistant", "content": answer})
+        try:
+            await save_qa_history(conn, request.video_id, full_history)
+        except Exception:
+            logger.warning("Failed to save qa_history for %s", request.video_id)
     return AskResponse(answer=answer)

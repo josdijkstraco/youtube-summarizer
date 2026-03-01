@@ -88,6 +88,7 @@ export interface VideoRecord {
   transcript: string;
   fallacy_analysis: FallacyAnalysisResult | null;
   highlights: Highlight[];
+  qa_history: QaMessage[];
   created_at: string;
 }
 
@@ -100,6 +101,7 @@ export interface AskRequest {
   transcript: string;
   question: string;
   history: QaMessage[];
+  video_id?: string;
 }
 
 export interface AskResponse {

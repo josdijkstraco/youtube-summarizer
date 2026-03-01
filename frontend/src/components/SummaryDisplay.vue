@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
 import { addHighlight, removeHighlight, askQuestion } from "@/services/api";
 
@@ -10,6 +10,7 @@ const props = defineProps<{
   stats?: SummaryStats | null;
   videoId?: string | null;
   initialHighlights?: Highlight[];
+  initialQaHistory?: QaMessage[];
 }>();
 
 const activeTab = ref<"summary" | "transcript" | "qa">("summary");
@@ -27,7 +28,7 @@ interface Popover {
 const popover = ref<Popover | null>(null);
 
 // Q&A state
-const qaHistory = ref<QaMessage[]>([]);
+const qaHistory = ref<QaMessage[]>(props.initialQaHistory ?? []);
 const qaInput = ref("");
 const qaLoading = ref(false);
 const qaError = ref<string | null>(null);
@@ -44,7 +45,7 @@ async function sendQuestion() {
   qaError.value = null;
 
   try {
-    const { answer } = await askQuestion(props.transcript, question, priorHistory);
+    const { answer } = await askQuestion(props.transcript, question, priorHistory, props.videoId ?? undefined);
     qaHistory.value = [...qaHistory.value, { role: "assistant", content: answer }];
   } catch (err) {
     qaError.value = err instanceof Error ? err.message : "Failed to get answer.";
@@ -68,13 +69,24 @@ watch(
   },
 );
 
-// Reset Q&A history when transcript changes (new video loaded)
+// Reset Q&A history when initialQaHistory prop changes (new video loaded)
 watch(
-  () => props.transcript,
-  () => {
-    qaHistory.value = [];
+  () => props.initialQaHistory,
+  (val) => {
+    qaHistory.value = val ?? [];
     qaInput.value = "";
     qaError.value = null;
+  },
+);
+
+// Scroll to bottom when messages change or loading indicator appears
+watch(
+  [qaHistory, qaLoading],
+  async () => {
+    await nextTick();
+    if (qaMessagesEl.value) {
+      qaMessagesEl.value.scrollTop = qaMessagesEl.value.scrollHeight;
+    }
   },
 );
 
@@ -815,7 +827,7 @@ onUnmounted(() => {
 }
 
 .summary-highlight {
-  background: #DBEAFE;
+  background: #FEF08A;
   border-radius: 2px;
   padding: 0 1px;
   cursor: pointer;
@@ -823,7 +835,7 @@ onUnmounted(() => {
 }
 
 .summary-highlight:hover {
-  background: #BFDBFE;
+  background: #FDE047;
 }
 
 .highlight-popover {
@@ -857,12 +869,12 @@ onUnmounted(() => {
 }
 
 .highlight-popover__btn--add {
-  background: #DBEAFE;
-  color: #1E40AF;
+  background: #FEF08A;
+  color: #713F12;
 }
 
 .highlight-popover__btn--add:hover {
-  background: #BFDBFE;
+  background: #FDE047;
 }
 
 .highlight-popover__btn--remove {

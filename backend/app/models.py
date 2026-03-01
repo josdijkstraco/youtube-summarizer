@@ -108,6 +108,11 @@ class ErrorResponse(BaseModel):
     details: str | None = None
 
 
+class QaMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class VideoRecord(BaseModel):
     id: int
     video_id: str
@@ -117,6 +122,7 @@ class VideoRecord(BaseModel):
     transcript: str
     fallacy_analysis: FallacyAnalysisResult | None = None
     highlights: list[Highlight] = []
+    qa_history: list[QaMessage] = []
     created_at: datetime
 
 
@@ -133,15 +139,11 @@ class HistoryResponse(BaseModel):
     items: list[HistoryItem]
 
 
-class QaMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str
-
-
 class AskRequest(BaseModel):
     transcript: str
     question: str
     history: list[QaMessage] = []
+    video_id: str | None = None
 
 
 class AskResponse(BaseModel):

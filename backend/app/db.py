@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 import asyncpg  # type: ignore[import-untyped]
 from fastapi import Request
 
-from app.models import FallacyAnalysisResult, Highlight, HistoryItem, VideoRecord
+from app.models import FallacyAnalysisResult, Highlight, HistoryItem, QaMessage, VideoRecord
 
 
 async def create_pool(dsn: str) -> asyncpg.Pool:
@@ -83,6 +83,23 @@ async def create_table(conn: asyncpg.Connection) -> None:
             ) THEN
                 ALTER TABLE youtube_summarizer.summaries
                 ADD COLUMN highlights JSONB DEFAULT '[]'::jsonb;
+            END IF;
+        END $$;
+        """
+    )
+    # Add qa_history column to existing tables if it doesn't exist
+    await conn.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'qa_history'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN qa_history JSONB DEFAULT '[]'::jsonb;
             END IF;
         END $$;
         """
@@ -167,6 +184,11 @@ def _parse_video_record(row: asyncpg.Record | None) -> VideoRecord | None:
         data["highlights"] = [Highlight(**h) for h in raw]
     else:
         data["highlights"] = []
+    # Parse qa_history JSON
+    raw_qa = data.get("qa_history") or "[]"
+    if isinstance(raw_qa, str):
+        raw_qa = json.loads(raw_qa)
+    data["qa_history"] = [QaMessage(**m) for m in raw_qa]
     return VideoRecord(**data)
 
 
@@ -189,6 +211,21 @@ async def save_fallacy_analysis(
         json.dumps(fallacy_analysis),
     )
     return result == "UPDATE 1"
+
+
+async def save_qa_history(
+    conn: asyncpg.Connection, video_id: str, history: list[dict]
+) -> None:
+    await conn.execute(
+        """
+        UPDATE youtube_summarizer.summaries
+           SET qa_history = $2
+         WHERE video_id = $1
+           AND deleted_at IS NULL
+        """,
+        video_id,
+        json.dumps(history),
+    )
 
 
 async def get_fallacy_analysis(

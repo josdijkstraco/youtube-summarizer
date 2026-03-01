@@ -225,11 +225,12 @@ export async function askQuestion(
   transcript: string,
   question: string,
   history: QaMessage[],
+  videoId?: string,
 ): Promise<AskResponse> {
   const response = await fetch(`${API_BASE}/api/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript, question, history }),
+    body: JSON.stringify({ transcript, question, history, video_id: videoId }),
   });
 
   if (!response.ok) {

@@ -7,6 +7,7 @@ import type {
   VideoMetadata,
   FallacyAnalysisResult,
   Highlight,
+  QaMessage,
 } from "@/types";
 import {
   summarizeVideo,
@@ -38,6 +39,7 @@ const historyPanelRef = ref<InstanceType<typeof HistoryPanel> | null>(null);
 const drawerOpen = ref(false);
 const currentVideoId = ref<string | null>(null);
 const currentHighlights = ref<Highlight[]>([]);
+const currentQaHistory = ref<QaMessage[]>([]);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -51,6 +53,7 @@ async function handleSubmit(url: string) {
   submittedUrl.value = null;
   currentVideoId.value = null;
   currentHighlights.value = [];
+  currentQaHistory.value = [];
 
   try {
     const response: SummarizeResponse = await summarizeVideo(
@@ -118,6 +121,7 @@ async function handleSelectVideo(videoId: string) {
   submittedUrl.value = `https://www.youtube.com/watch?v=${videoId}`;
   currentVideoId.value = null;
   currentHighlights.value = [];
+  currentQaHistory.value = [];
 
   try {
     const record = await fetchHistoryItem(videoId);
@@ -132,6 +136,7 @@ async function handleSelectVideo(videoId: string) {
     };
     currentVideoId.value = record.video_id;
     currentHighlights.value = record.highlights ?? [];
+    currentQaHistory.value = record.qa_history ?? [];
     if (record.fallacy_analysis) {
       fallacyAnalysis.value = record.fallacy_analysis;
     }
@@ -194,6 +199,7 @@ async function handleSelectVideo(videoId: string) {
           :stats="stats"
           :video-id="currentVideoId"
           :initial-highlights="currentHighlights"
+          :initial-qa-history="currentQaHistory"
         />
       </Transition>
       <Transition name="fade-up">
