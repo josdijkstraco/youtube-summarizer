@@ -221,6 +221,30 @@ export async function removeHighlight(
   return response.json();
 }
 
+export async function saveNotes(
+  videoId: string,
+  notes: string | null,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/history/${videoId}/notes`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ notes }),
+  });
+  if (!response.ok && response.status !== 204) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to save notes.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+}
+
 export async function askQuestion(
   transcript: string,
   question: string,

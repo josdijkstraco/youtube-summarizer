@@ -40,6 +40,7 @@ const drawerOpen = ref(false);
 const currentVideoId = ref<string | null>(null);
 const currentHighlights = ref<Highlight[]>([]);
 const currentQaHistory = ref<QaMessage[]>([]);
+const currentNotes = ref<string | null>(null);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -54,6 +55,7 @@ async function handleSubmit(url: string) {
   currentVideoId.value = null;
   currentHighlights.value = [];
   currentQaHistory.value = [];
+  currentNotes.value = null;
 
   try {
     const response: SummarizeResponse = await summarizeVideo(
@@ -67,6 +69,7 @@ async function handleSubmit(url: string) {
     submittedUrl.value = url;
     currentVideoId.value = response.metadata?.video_id ?? null;
     currentHighlights.value = response.highlights ?? [];
+    currentNotes.value = response.notes ?? null;
     historyPanelRef.value?.reload();
   } catch (e) {
     if (e instanceof ApiError) {
@@ -122,6 +125,7 @@ async function handleSelectVideo(videoId: string) {
   currentVideoId.value = null;
   currentHighlights.value = [];
   currentQaHistory.value = [];
+  currentNotes.value = null;
 
   try {
     const record = await fetchHistoryItem(videoId);
@@ -137,6 +141,7 @@ async function handleSelectVideo(videoId: string) {
     currentVideoId.value = record.video_id;
     currentHighlights.value = record.highlights ?? [];
     currentQaHistory.value = record.qa_history ?? [];
+    currentNotes.value = record.notes ?? null;
     if (record.fallacy_analysis) {
       fallacyAnalysis.value = record.fallacy_analysis;
     }
@@ -200,6 +205,7 @@ async function handleSelectVideo(videoId: string) {
           :video-id="currentVideoId"
           :initial-highlights="currentHighlights"
           :initial-qa-history="currentQaHistory"
+          :initial-notes="currentNotes"
         />
       </Transition>
       <Transition name="fade-up">

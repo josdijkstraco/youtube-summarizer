@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
-import { addHighlight, removeHighlight, askQuestion } from "@/services/api";
+import { addHighlight, removeHighlight, askQuestion, saveNotes } from "@/services/api";
 
 const props = defineProps<{
   summary: string;
@@ -11,9 +11,38 @@ const props = defineProps<{
   videoId?: string | null;
   initialHighlights?: Highlight[];
   initialQaHistory?: QaMessage[];
+  initialNotes?: string | null;
 }>();
 
-const activeTab = ref<"summary" | "transcript" | "qa">("summary");
+const activeTab = ref<"summary" | "transcript" | "qa" | "notes">("summary");
+
+// Notes state
+const notes = ref<string>(props.initialNotes ?? "");
+const notesSaveStatus = ref<"idle" | "saving" | "saved" | "error">("idle");
+let notesDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(() => props.initialNotes, (val) => {
+  notes.value = val ?? "";
+  notesSaveStatus.value = "idle";
+  if (notesDebounceTimer) {
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = null;
+  }
+});
+
+function handleNotesInput() {
+  if (!props.videoId) return;
+  if (notesDebounceTimer) clearTimeout(notesDebounceTimer);
+  notesDebounceTimer = setTimeout(async () => {
+    notesSaveStatus.value = "saving";
+    try {
+      await saveNotes(props.videoId!, notes.value || null);
+      notesSaveStatus.value = "saved";
+    } catch {
+      notesSaveStatus.value = "error";
+    }
+  }, 1000);
+}
 const highlights = ref<Highlight[]>(props.initialHighlights ?? []);
 const contentEl = ref<HTMLElement | null>(null);
 
@@ -343,6 +372,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener("keydown", onKeyDown);
   document.removeEventListener("click", onDocumentClick, true);
+  if (notesDebounceTimer) clearTimeout(notesDebounceTimer);
 });
 </script>
 
@@ -432,9 +462,18 @@ onUnmounted(() => {
       >
         Q&amp;A
       </button>
+      <button
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'notes' },
+        ]"
+        @click="activeTab = 'notes'"
+      >
+        Notes
+      </button>
     </div>
     <div
-      v-if="activeTab !== 'qa'"
+      v-if="activeTab !== 'qa' && activeTab !== 'notes'"
       ref="contentEl"
       class="summary-display__content"
       @mouseup="onSummaryMouseUp"
@@ -482,6 +521,22 @@ onUnmounted(() => {
         >
           Send
         </button>
+      </div>
+    </div>
+
+    <!-- Notes panel -->
+    <div v-if="activeTab === 'notes'" class="summary-display__notes">
+      <textarea
+        v-model="notes"
+        class="notes-textarea"
+        placeholder="Add your notes about this video…"
+        :disabled="!videoId"
+        @input="handleNotesInput"
+      />
+      <div class="notes-status">
+        <span v-if="notesSaveStatus === 'saving'">Saving…</span>
+        <span v-else-if="notesSaveStatus === 'saved'">Saved</span>
+        <span v-else-if="notesSaveStatus === 'error'">Failed to save</span>
       </div>
     </div>
 
@@ -678,6 +733,46 @@ onUnmounted(() => {
   font-size: 0.875rem;
   line-height: 1.75;
   color: #4B5563;
+}
+
+/* Notes panel */
+.summary-display__notes {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.notes-textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  font-family: 'Manrope', sans-serif;
+  line-height: 1.6;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.notes-textarea:focus {
+  border-color: #2563EB;
+}
+
+.notes-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #F9FAFB;
+}
+
+.notes-status {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #9CA3AF;
+  text-align: right;
+  min-height: 1.1em;
 }
 
 /* Q&A panel */

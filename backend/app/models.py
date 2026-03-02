@@ -100,6 +100,7 @@ class SummarizeResponse(BaseModel):
     storage_warning: bool = False
     stats: SummaryStats | None = None
     highlights: list[Highlight] = []
+    notes: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -123,6 +124,7 @@ class VideoRecord(BaseModel):
     fallacy_analysis: FallacyAnalysisResult | None = None
     highlights: list[Highlight] = []
     qa_history: list[QaMessage] = []
+    notes: str | None = None
     created_at: datetime
 
 
@@ -148,3 +150,7 @@ class AskRequest(BaseModel):
 
 class AskResponse(BaseModel):
     answer: str
+
+
+class NotesUpdateRequest(BaseModel):
+    notes: str | None = None

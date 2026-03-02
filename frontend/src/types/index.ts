@@ -58,6 +58,7 @@ export interface SummarizeResponse {
   storage_warning?: boolean;
   stats: SummaryStats | null;
   highlights?: Highlight[];
+  notes?: string | null;
 }
 
 export interface ErrorResponse {
@@ -89,6 +90,7 @@ export interface VideoRecord {
   fallacy_analysis: FallacyAnalysisResult | null;
   highlights: Highlight[];
   qa_history: QaMessage[];
+  notes?: string | null;
   created_at: string;
 }
 

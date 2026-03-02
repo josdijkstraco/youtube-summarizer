@@ -28,6 +28,7 @@ from app.db import (
     remove_highlight,
     restore,
     save_fallacy_analysis,
+    save_notes,
     save_qa_history,
     save_record,
     soft_delete,
@@ -42,6 +43,7 @@ from app.models import (
     HighlightRequest,
     HistoryItem,
     HistoryResponse,
+    NotesUpdateRequest,
     SummarizeRequest,
     SummarizeResponse,
     SummaryStats,
@@ -74,7 +76,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.backend_cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "DELETE", "PUT"],
     allow_headers=["*"],
 )
 
@@ -179,6 +181,24 @@ async def remove_highlight_endpoint(
     return result
 
 
+@app.put("/api/history/{video_id}/notes", response_model=None)
+async def update_notes_endpoint(
+    video_id: str,
+    body: NotesUpdateRequest,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> JSONResponse:
+    updated = await save_notes(conn, video_id, body.notes)
+    if not updated:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No record for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return JSONResponse(status_code=204, content=None)
+
+
 @app.post("/api/summarize", response_model=None)
 async def summarize_video(
     request: SummarizeRequest,
@@ -221,6 +241,7 @@ async def summarize_video(
             transcript=existing.transcript,
             metadata=cached_metadata,
             highlights=existing.highlights,
+            notes=existing.notes,
             storage_warning=False,
         )
 

@@ -104,6 +104,23 @@ async def create_table(conn: asyncpg.Connection) -> None:
         END $$;
         """
     )
+    # Add notes column to existing tables if it doesn't exist
+    await conn.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'notes'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN notes TEXT DEFAULT NULL;
+            END IF;
+        END $$;
+        """
+    )
 
 
 async def save_record(
@@ -226,6 +243,16 @@ async def save_qa_history(
         video_id,
         json.dumps(history),
     )
+
+
+async def save_notes(conn: asyncpg.Connection, video_id: str, notes: str | None) -> bool:
+    result = await conn.execute(
+        "UPDATE youtube_summarizer.summaries SET notes = $2 "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+        notes,
+    )
+    return result == "UPDATE 1"
 
 
 async def get_fallacy_analysis(
