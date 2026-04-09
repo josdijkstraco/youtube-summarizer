@@ -2,7 +2,7 @@ from openai import AsyncOpenAI
 
 from app.config import settings
 
-_MODEL = "gpt-4o-mini"
+_MODEL = "gpt-4o"
 _TIMEOUT = 30
 
 _SYSTEM_PROMPT = (
