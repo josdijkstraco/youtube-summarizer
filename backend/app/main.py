@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import APIError
 from youtube_transcript_api._errors import (
+    IpBlocked,
     NoTranscriptFound,
+    RequestBlocked,
     TranscriptsDisabled,
     VideoUnavailable,
 )
@@ -247,28 +249,28 @@ async def summarize_video(
 
     try:
         full_text, segments = get_transcript(video_id)
-    except VideoUnavailable:
+    except (IpBlocked, RequestBlocked) as exc:
+        return JSONResponse(
+            status_code=503,
+            content=ErrorResponse(
+                error="ip_blocked",
+                message=f"YouTube is blocking requests from this server's IP: {exc}",
+            ).model_dump(),
+        )
+    except VideoUnavailable as exc:
         return JSONResponse(
             status_code=404,
             content=ErrorResponse(
                 error="video_not_found",
-                message=(
-                    "The video could not be found. "
-                    "It may have been removed or "
-                    "the URL may be incorrect."
-                ),
+                message=f"Video not found: {exc}",
             ).model_dump(),
         )
-    except (TranscriptsDisabled, NoTranscriptFound):
+    except (TranscriptsDisabled, NoTranscriptFound) as exc:
         return JSONResponse(
             status_code=404,
             content=ErrorResponse(
                 error="transcript_unavailable",
-                message=(
-                    "No transcript is available for this video. "
-                    "Try a different video that has "
-                    "captions enabled."
-                ),
+                message=f"No transcript available: {exc}",
             ).model_dump(),
         )
 
@@ -282,23 +284,21 @@ async def summarize_video(
         )
         duration = time.monotonic() - t0
         summary = summary_result.content
-    except APIError:
+    except APIError as exc:
         return JSONResponse(
             status_code=502,
             content=ErrorResponse(
                 error="summarization_failed",
-                message=(
-                    "Unable to generate summary at this time. Please try again later."
-                ),
+                message=f"OpenAI API error: {exc}",
             ).model_dump(),
         )
-    except Exception:
+    except Exception as exc:
         logger.exception("Unexpected error during summarization")
         return JSONResponse(
             status_code=500,
             content=ErrorResponse(
                 error="internal_error",
-                message=("An unexpected error occurred. Please try again."),
+                message=f"Summarization failed: {type(exc).__name__}: {exc}",
             ).model_dump(),
         )
 
@@ -377,28 +377,36 @@ async def analyze_video_fallacies(
 
     try:
         full_text, _segments = get_transcript(video_id)
-    except VideoUnavailable:
+    except (IpBlocked, RequestBlocked) as exc:
+        return JSONResponse(
+            status_code=503,
+            content=ErrorResponse(
+                error="ip_blocked",
+                message=f"YouTube is blocking requests from this server's IP: {exc}",
+            ).model_dump(),
+        )
+    except VideoUnavailable as exc:
         return JSONResponse(
             status_code=404,
             content=ErrorResponse(
                 error="video_not_found",
-                message=(
-                    "The video could not be found. "
-                    "It may have been removed or "
-                    "the URL may be incorrect."
-                ),
+                message=f"Video not found: {exc}",
             ).model_dump(),
         )
-    except (TranscriptsDisabled, NoTranscriptFound):
+    except (TranscriptsDisabled, NoTranscriptFound) as exc:
         return JSONResponse(
             status_code=404,
             content=ErrorResponse(
                 error="transcript_unavailable",
-                message=(
-                    "No transcript is available for this video. "
-                    "Try a different video that has "
-                    "captions enabled."
-                ),
+                message=f"No transcript available: {exc}",
+            ).model_dump(),
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error="transcript_error",
+                message=f"Failed to fetch transcript: {type(exc).__name__}: {exc}",
             ).model_dump(),
         )
 
@@ -408,9 +416,7 @@ async def analyze_video_fallacies(
             status_code=502,
             content=ErrorResponse(
                 error="analysis_failed",
-                message=(
-                    "Unable to analyze fallacies at this time. Please try again later."
-                ),
+                message="OpenAI returned no fallacy analysis. The API may be down or rate-limiting.",
             ).model_dump(),
         )
 

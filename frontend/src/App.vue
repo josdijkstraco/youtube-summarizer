@@ -75,9 +75,12 @@ async function handleSubmit(url: string) {
     if (e instanceof ApiError) {
       error.value = e.errorResponse;
     } else {
+      const msg = e instanceof Error ? e.message : String(e);
       error.value = {
         error: "internal_error",
-        message: "An unexpected error occurred. Please try again.",
+        message: msg === "Failed to fetch"
+          ? "Could not reach the server. Check that the backend is running."
+          : `Unexpected error: ${msg}`,
         details: null,
       };
     }
@@ -96,9 +99,12 @@ async function handleAnalyzeFallacies() {
     if (e instanceof ApiError) {
       fallacyError.value = e.errorResponse;
     } else {
+      const msg = e instanceof Error ? e.message : String(e);
       fallacyError.value = {
         error: "internal_error",
-        message: "An unexpected error occurred. Please try again.",
+        message: msg === "Failed to fetch"
+          ? "Could not reach the server. Check that the backend is running."
+          : `Unexpected error: ${msg}`,
         details: null,
       };
     }
@@ -149,9 +155,12 @@ async function handleSelectVideo(videoId: string) {
     if (e instanceof ApiError) {
       error.value = e.errorResponse;
     } else {
+      const msg = e instanceof Error ? e.message : String(e);
       error.value = {
         error: "internal_error",
-        message: "An unexpected error occurred. Please try again.",
+        message: msg === "Failed to fetch"
+          ? "Could not reach the server. Check that the backend is running."
+          : `Unexpected error: ${msg}`,
         details: null,
       };
     }

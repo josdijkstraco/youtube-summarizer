@@ -44,7 +44,7 @@ export async function summarizeVideo(
     } catch {
       errorResponse = {
         error: "internal_error",
-        message: "An unexpected error occurred. Please try again.",
+        message: `Server returned ${response.status} ${response.statusText}`,
         details: null,
       };
     }
@@ -70,7 +70,7 @@ export async function analyzeFallacies(
     } catch {
       errorResponse = {
         error: "internal_error",
-        message: "An unexpected error occurred. Please try again.",
+        message: `Server returned ${response.status} ${response.statusText}`,
         details: null,
       };
     }
