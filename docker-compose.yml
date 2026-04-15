@@ -7,6 +7,7 @@ services:
       - "8002:8002"
     volumes:
       - ./data:/app/data
+      - ./cookies.txt:/app/cookies.txt:ro
     env_file:
       - ./backend/.env
     restart: unless-stopped

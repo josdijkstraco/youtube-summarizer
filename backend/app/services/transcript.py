@@ -1,6 +1,22 @@
+import os
+from http.cookiejar import MozillaCookieJar
 from typing import Any
 
+import requests
 from youtube_transcript_api import YouTubeTranscriptApi
+
+COOKIES_PATH = "/app/cookies.txt"
+
+
+def _build_session() -> requests.Session | None:
+    """Build a requests.Session with YouTube cookies if available."""
+    if not os.path.exists(COOKIES_PATH):
+        return None
+    jar = MozillaCookieJar(COOKIES_PATH)
+    jar.load(ignore_discard=True, ignore_expires=True)
+    session = requests.Session()
+    session.cookies.update(jar)  # type: ignore[arg-type]
+    return session
 
 
 def get_transcript(video_id: str) -> tuple[str, list[dict[str, Any]]]:
@@ -19,7 +35,7 @@ def get_transcript(video_id: str) -> tuple[str, list[dict[str, Any]]]:
         NoTranscriptFound: If no transcript is available in any language.
         VideoUnavailable: If the video does not exist or was removed.
     """
-    ytt_api = YouTubeTranscriptApi()
+    ytt_api = YouTubeTranscriptApi(http_client=_build_session())
     transcript = ytt_api.fetch(video_id)
 
     full_text = " ".join(snippet.text for snippet in transcript)
