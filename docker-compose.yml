@@ -10,6 +10,9 @@ services:
       - ./cookies.txt:/app/cookies.txt:ro
     env_file:
       - ./backend/.env
+    environment:
+      DATA_DIR: /app/data
+      COOKIES_PATH: /app/cookies.txt
     restart: unless-stopped
 
   frontend:

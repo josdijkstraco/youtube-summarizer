@@ -8,6 +8,7 @@ import type {
   VideoRecord,
   QaMessage,
   AskResponse,
+  VideoDownloadStatus,
 } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -265,6 +266,48 @@ export async function askQuestion(
       errorResponse = {
         error: "internal_error",
         message: "Failed to get answer.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function downloadVideo(videoId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/videos/${videoId}/download`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: `Server returned ${response.status} ${response.statusText}`,
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+}
+
+export async function getVideoStatus(
+  videoId: string,
+): Promise<VideoDownloadStatus> {
+  const response = await fetch(`${API_BASE}/api/videos/${videoId}/status`);
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: `Server returned ${response.status} ${response.statusText}`,
         details: null,
       };
     }

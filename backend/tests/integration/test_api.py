@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg
 from fastapi.testclient import TestClient
 
+import app.services.downloader as downloader_module
 from app.db import get_db
 from app.main import app
 from app.models import VideoRecord
@@ -780,3 +781,65 @@ class TestGetHistoryItemEndpoint:
             assert data["error"] == "not_found"
         finally:
             app.dependency_overrides.pop(get_db, None)
+
+
+# ---------------------------------------------------------------------------
+# Video download endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestVideoDownloadEndpoints:
+    """Integration tests for POST /api/videos/{video_id}/download,
+    GET /api/videos/{video_id}/status, and GET /api/videos/{video_id}/stream."""
+
+    def test_post_download_unknown_video_returns_404(self) -> None:
+        with patch(
+            "app.main.get_by_video_id",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            response = client.post("/api/videos/unknown/download")
+        assert response.status_code == 404
+        data = response.json()
+        assert data["error"] == "not_found"
+
+    def test_post_download_known_video_returns_202(self, tmp_path) -> None:
+        fake_record = VideoRecord(
+            id=1,
+            video_id=_FAKE_VIDEO_ID,
+            title="Test Video",
+            thumbnail_url=None,
+            summary="Test summary",
+            transcript="Test transcript",
+            created_at=_FAKE_CREATED_AT,
+        )
+        with (
+            patch(
+                "app.main.get_by_video_id",
+                new_callable=AsyncMock,
+                return_value=fake_record,
+            ),
+            patch.object(downloader_module, "DATA_DIR", tmp_path),
+            patch.object(downloader_module, "_downloading", set()),
+            patch("app.main.start_download", new_callable=AsyncMock) as mock_dl,
+        ):
+            response = client.post(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        assert response.status_code == 202
+        mock_dl.assert_called_once_with(_FAKE_VIDEO_ID)
+
+    def test_get_status_returns_not_downloaded_when_no_file(self, tmp_path) -> None:
+        with (
+            patch.object(downloader_module, "DATA_DIR", tmp_path),
+            patch.object(downloader_module, "_downloading", set()),
+        ):
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "not_downloaded"
+
+    def test_get_stream_returns_404_when_no_file(self, tmp_path) -> None:
+        with patch.object(downloader_module, "DATA_DIR", tmp_path):
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/stream")
+        assert response.status_code == 404
+        data = response.json()
+        assert data["error"] == "not_found"

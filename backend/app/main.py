@@ -4,9 +4,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import asyncpg  # type: ignore[import-untyped]
-from fastapi import Depends, FastAPI, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from openai import APIError
 from youtube_transcript_api._errors import (
     IpBlocked,
@@ -49,8 +49,16 @@ from app.models import (
     SummarizeRequest,
     SummarizeResponse,
     SummaryStats,
+    VideoDownloadStatus,
     VideoMetadata,
     VideoRecord,
+)
+from app.services.downloader import (
+    DATA_DIR,
+    delete_video_file,
+    get_download_error,
+    get_download_status,
+    start_download,
 )
 from app.services.fallacy_analyzer import analyze_fallacies
 from app.services.qa import ask_question
@@ -128,6 +136,10 @@ async def delete_history_item(
                 message=f"No record found for video_id: {video_id}",
             ).model_dump(),
         )
+    try:
+        delete_video_file(video_id)
+    except Exception as e:
+        logger.warning("Failed to delete video file for %s: %s", video_id, e)
 
 
 @app.post("/api/history/{video_id}/restore", response_model=None)
@@ -445,3 +457,106 @@ async def ask(request: AskRequest, conn: asyncpg.Connection = Depends(get_db)) -
         except Exception:
             logger.warning("Failed to save qa_history for %s", request.video_id)
     return AskResponse(answer=answer)
+
+
+@app.post("/api/videos/{video_id}/download", response_model=None)
+async def download_video(
+    video_id: str,
+    background_tasks: BackgroundTasks,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> Response | JSONResponse:
+    record = await get_by_video_id(conn, video_id)
+    if record is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message="No summary for this video",
+            ).model_dump(),
+        )
+    status = get_download_status(video_id)
+    if status in ("downloading", "ready"):
+        return JSONResponse(
+            status_code=409,
+            content=ErrorResponse(
+                error="already_exists",
+                message="Video is already downloading or ready",
+            ).model_dump(),
+        )
+    background_tasks.add_task(start_download, video_id)
+    return Response(status_code=202)
+
+
+@app.get("/api/videos/{video_id}/status", response_model=VideoDownloadStatus)
+async def get_video_status(video_id: str) -> VideoDownloadStatus:
+    status = get_download_status(video_id)
+    return VideoDownloadStatus(
+        status=status,
+        error_message=get_download_error(video_id) if status == "error" else None,
+    )
+
+
+@app.get("/api/videos/{video_id}/stream", response_model=None)
+async def stream_video(
+    video_id: str,
+    request: Request,
+) -> StreamingResponse | JSONResponse:
+    path = DATA_DIR / f"{video_id}.mp4"
+    if not path.exists():
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message="Video file not found",
+            ).model_dump(),
+        )
+
+    file_size = path.stat().st_size
+    range_header = request.headers.get("range")
+
+    if range_header:
+        range_str = range_header.replace("bytes=", "")
+        parts = range_str.split("-")
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if len(parts) > 1 and parts[1] else file_size - 1
+        chunk_size = end - start + 1
+
+        def _iter_range() -> AsyncIterator[bytes]:  # type: ignore[override]
+            with open(path, "rb") as f:
+                f.seek(start)
+                remaining = chunk_size
+                while remaining > 0:
+                    data = f.read(min(65536, remaining))
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        return StreamingResponse(
+            _iter_range(),
+            status_code=206,
+            headers={
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(chunk_size),
+                "Content-Type": "video/mp4",
+            },
+        )
+
+    def _iter_full() -> AsyncIterator[bytes]:  # type: ignore[override]
+        with open(path, "rb") as f:
+            while True:
+                data = f.read(65536)
+                if not data:
+                    break
+                yield data
+
+    return StreamingResponse(
+        _iter_full(),
+        status_code=200,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+            "Content-Type": "video/mp4",
+        },
+    )

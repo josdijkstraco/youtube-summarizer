@@ -109,3 +109,8 @@ export interface AskRequest {
 export interface AskResponse {
   answer: string;
 }
+
+export interface VideoDownloadStatus {
+  status: 'not_downloaded' | 'downloading' | 'ready' | 'error';
+  error_message: string | null;
+}

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
-import { addHighlight, removeHighlight, askQuestion, saveNotes } from "@/services/api";
+import { addHighlight, removeHighlight, askQuestion, saveNotes, downloadVideo, getVideoStatus } from "@/services/api";
 
 const props = defineProps<{
   summary: string;
@@ -14,7 +14,56 @@ const props = defineProps<{
   initialNotes?: string | null;
 }>();
 
-const activeTab = ref<"summary" | "transcript" | "qa" | "notes">("summary");
+const activeTab = ref<"summary" | "transcript" | "qa" | "notes" | "video">("summary");
+
+// Video tab state
+type VideoState = 'not_downloaded' | 'downloading' | 'ready' | 'error';
+const videoState = ref<VideoState>('not_downloaded');
+const videoErrorMessage = ref('');
+let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+async function initVideoStatus() {
+  if (!props.videoId) return;
+  try {
+    const { status } = await getVideoStatus(props.videoId);
+    videoState.value = status;
+  } catch {
+    // leave as not_downloaded if status check fails
+  }
+}
+
+async function handleDownload() {
+  if (!props.videoId) return;
+  try {
+    await downloadVideo(props.videoId);
+  } catch {
+    // 409 means already downloading/ready — refresh status
+  }
+  videoState.value = 'downloading';
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    if (!props.videoId) return;
+    try {
+      const { status, error_message } = await getVideoStatus(props.videoId);
+      if (status === 'ready') {
+        videoState.value = 'ready';
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      } else if (status === 'error') {
+        videoState.value = 'error';
+        videoErrorMessage.value = error_message ?? 'Download failed.';
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+      }
+    } catch (err) {
+      videoState.value = 'error';
+      videoErrorMessage.value = err instanceof Error ? err.message : 'Download failed.';
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    }
+  }, 2000);
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'video') initVideoStatus();
+});
 
 // Notes state
 const notes = ref<string>(props.initialNotes ?? "");
@@ -373,6 +422,7 @@ onUnmounted(() => {
   document.removeEventListener("keydown", onKeyDown);
   document.removeEventListener("click", onDocumentClick, true);
   if (notesDebounceTimer) clearTimeout(notesDebounceTimer);
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
 });
 </script>
 
@@ -471,9 +521,19 @@ onUnmounted(() => {
       >
         Notes
       </button>
+      <button
+        v-if="videoId"
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'video' },
+        ]"
+        @click="activeTab = 'video'"
+      >
+        Video
+      </button>
     </div>
     <div
-      v-if="activeTab !== 'qa' && activeTab !== 'notes'"
+      v-if="activeTab !== 'qa' && activeTab !== 'notes' && activeTab !== 'video'"
       ref="contentEl"
       class="summary-display__content"
       @mouseup="onSummaryMouseUp"
@@ -538,6 +598,30 @@ onUnmounted(() => {
         <span v-else-if="notesSaveStatus === 'saved'">Saved</span>
         <span v-else-if="notesSaveStatus === 'error'">Failed to save</span>
       </div>
+    </div>
+
+    <!-- Video panel -->
+    <div v-if="activeTab === 'video'" class="summary-display__video">
+      <template v-if="videoState === 'not_downloaded'">
+        <button class="video-download-btn" @click="handleDownload">Download video</button>
+      </template>
+      <template v-else-if="videoState === 'downloading'">
+        <div class="video-downloading">
+          <span class="video-spinner" />
+          <span>Downloading…</span>
+        </div>
+      </template>
+      <template v-else-if="videoState === 'ready'">
+        <video
+          controls
+          :src="`/api/videos/${videoId}/stream`"
+          class="video-player"
+        />
+      </template>
+      <template v-else-if="videoState === 'error'">
+        <p class="video-error">{{ videoErrorMessage }}</p>
+        <button class="video-download-btn" @click="handleDownload">Retry</button>
+      </template>
     </div>
 
     <!-- Highlight popover — teleported to body to avoid clipping -->
@@ -773,6 +857,70 @@ onUnmounted(() => {
   color: #9CA3AF;
   text-align: right;
   min-height: 1.1em;
+}
+
+/* Video panel */
+.summary-display__video {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  gap: 1rem;
+  min-height: 200px;
+}
+
+.video-player {
+  width: 100%;
+  border-radius: 8px;
+  background: #000;
+}
+
+.video-download-btn {
+  padding: 0.6rem 1.5rem;
+  background: #2563EB;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.video-download-btn:hover {
+  background: #1D4ED8;
+}
+
+.video-downloading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #6B7280;
+  font-size: 0.9rem;
+}
+
+.video-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #D1D5DB;
+  border-top-color: #2563EB;
+  border-radius: 50%;
+  animation: video-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes video-spin {
+  to { transform: rotate(360deg); }
+}
+
+.video-error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #B91C1C;
+  text-align: center;
 }
 
 /* Q&A panel */
