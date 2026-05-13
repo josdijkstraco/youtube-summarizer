@@ -8,8 +8,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./cookies.txt:/app/cookies.txt:ro
+      - ./downloads:/app/downloads
     env_file:
       - ./backend/.env
+    environment:
+      - DOWNLOAD_DIR=/app/downloads
     restart: unless-stopped
 
   frontend:
