@@ -8,6 +8,7 @@ import type {
   FallacyAnalysisResult,
   Highlight,
   QaMessage,
+  DownloadStatusResponse,
 } from "@/types";
 import {
   summarizeVideo,
@@ -41,6 +42,7 @@ const currentVideoId = ref<string | null>(null);
 const currentHighlights = ref<Highlight[]>([]);
 const currentQaHistory = ref<QaMessage[]>([]);
 const currentNotes = ref<string | null>(null);
+const currentDownloadStatus = ref<DownloadStatusResponse | null>(null);
 
 async function handleSubmit(url: string) {
   loading.value = true;
@@ -56,6 +58,7 @@ async function handleSubmit(url: string) {
   currentHighlights.value = [];
   currentQaHistory.value = [];
   currentNotes.value = null;
+  currentDownloadStatus.value = null;
 
   try {
     const response: SummarizeResponse = await summarizeVideo(
@@ -132,6 +135,7 @@ async function handleSelectVideo(videoId: string) {
   currentHighlights.value = [];
   currentQaHistory.value = [];
   currentNotes.value = null;
+  currentDownloadStatus.value = null;
 
   try {
     const record = await fetchHistoryItem(videoId);
@@ -148,6 +152,9 @@ async function handleSelectVideo(videoId: string) {
     currentHighlights.value = record.highlights ?? [];
     currentQaHistory.value = record.qa_history ?? [];
     currentNotes.value = record.notes ?? null;
+    currentDownloadStatus.value = record.download_status
+      ? { video_id: record.video_id, status: record.download_status, downloaded_at: record.downloaded_at }
+      : null;
     if (record.fallacy_analysis) {
       fallacyAnalysis.value = record.fallacy_analysis;
     }
@@ -215,6 +222,7 @@ async function handleSelectVideo(videoId: string) {
           :initial-highlights="currentHighlights"
           :initial-qa-history="currentQaHistory"
           :initial-notes="currentNotes"
+          :download-status="currentDownloadStatus"
         />
       </Transition>
       <Transition name="fade-up">

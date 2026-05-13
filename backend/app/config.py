@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import PostgresDsn
 from pydantic_settings import BaseSettings
 
@@ -11,8 +13,10 @@ class Settings(BaseSettings):
         "http://localhost:3002",
         "http://127.0.0.1:3002",
     ]
+    download_dir: Path = Path("./downloads")
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
 settings = Settings()  # type: ignore[call-arg]
+settings.download_dir.mkdir(parents=True, exist_ok=True)

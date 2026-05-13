@@ -125,6 +125,8 @@ class VideoRecord(BaseModel):
     highlights: list[Highlight] = []
     qa_history: list[QaMessage] = []
     notes: str | None = None
+    download_status: Literal["pending", "ready", "error"] | None = None
+    downloaded_at: datetime | None = None
     created_at: datetime
 
 
@@ -154,3 +156,9 @@ class AskResponse(BaseModel):
 
 class NotesUpdateRequest(BaseModel):
     notes: str | None = None
+
+
+class DownloadStatusResponse(BaseModel):
+    video_id: str
+    status: Literal["pending", "ready", "error"] | None = None
+    downloaded_at: datetime | None = None

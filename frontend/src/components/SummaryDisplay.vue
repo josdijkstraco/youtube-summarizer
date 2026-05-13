@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
+import type { VideoMetadata, SummaryStats, Highlight, QaMessage, DownloadStatusResponse } from "@/types";
 import { addHighlight, removeHighlight, askQuestion, saveNotes } from "@/services/api";
+import VideoPlayer from "@/components/VideoPlayer.vue";
 
 const props = defineProps<{
   summary: string;
@@ -12,9 +13,10 @@ const props = defineProps<{
   initialHighlights?: Highlight[];
   initialQaHistory?: QaMessage[];
   initialNotes?: string | null;
+  downloadStatus?: DownloadStatusResponse | null;
 }>();
 
-const activeTab = ref<"summary" | "transcript" | "qa" | "notes">("summary");
+const activeTab = ref<"summary" | "transcript" | "qa" | "notes" | "video">("summary");
 
 // Notes state
 const notes = ref<string>(props.initialNotes ?? "");
@@ -471,9 +473,18 @@ onUnmounted(() => {
       >
         Notes
       </button>
+      <button
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'video' },
+        ]"
+        @click="activeTab = 'video'"
+      >
+        Video
+      </button>
     </div>
     <div
-      v-if="activeTab !== 'qa' && activeTab !== 'notes'"
+      v-if="activeTab !== 'qa' && activeTab !== 'notes' && activeTab !== 'video'"
       ref="contentEl"
       class="summary-display__content"
       @mouseup="onSummaryMouseUp"
@@ -538,6 +549,17 @@ onUnmounted(() => {
         <span v-else-if="notesSaveStatus === 'saved'">Saved</span>
         <span v-else-if="notesSaveStatus === 'error'">Failed to save</span>
       </div>
+    </div>
+
+    <!-- Video panel -->
+    <div v-if="activeTab === 'video' && videoId">
+      <VideoPlayer
+        :video-id="videoId"
+        :initial-status="downloadStatus ?? null"
+      />
+    </div>
+    <div v-else-if="activeTab === 'video'" class="video-player-unavailable">
+      <p>Save this video first to enable the Video tab.</p>
     </div>
 
     <!-- Highlight popover — teleported to body to avoid clipping -->
@@ -733,6 +755,17 @@ onUnmounted(() => {
   font-size: 0.875rem;
   line-height: 1.75;
   color: #4B5563;
+}
+
+.video-player-unavailable {
+  padding: 2rem 1.5rem;
+  color: #9CA3AF;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.video-player-unavailable p {
+  margin: 0;
 }
 
 /* Notes panel */

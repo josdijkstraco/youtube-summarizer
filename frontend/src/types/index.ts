@@ -80,6 +80,14 @@ export interface HistoryResponse {
   items: HistoryItem[];
 }
 
+export type DownloadStatus = "pending" | "ready" | "error";
+
+export interface DownloadStatusResponse {
+  video_id: string;
+  status: DownloadStatus | null;
+  downloaded_at: string | null;
+}
+
 export interface VideoRecord {
   id: number;
   video_id: string;
@@ -91,6 +99,8 @@ export interface VideoRecord {
   highlights: Highlight[];
   qa_history: QaMessage[];
   notes?: string | null;
+  download_status: DownloadStatus | null;
+  downloaded_at: string | null;
   created_at: string;
 }
 
