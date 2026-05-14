@@ -1,12 +1,18 @@
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 import asyncpg  # type: ignore[import-untyped]
-from fastapi import Depends, FastAPI, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from openai import APIError
 from youtube_transcript_api._errors import (
     IpBlocked,
@@ -19,16 +25,19 @@ from youtube_transcript_api._errors import (
 from app.config import settings
 from app.db import (
     add_highlight,
+    clear_download,
     close_pool,
     create_pool,
     create_table,
     get_by_video_id,
     get_db,
+    get_download_status,
     get_fallacy_analysis,
     get_full_record,
     list_recent,
     remove_highlight,
     restore,
+    save_download_status,
     save_fallacy_analysis,
     save_notes,
     save_qa_history,
@@ -38,6 +47,7 @@ from app.db import (
 from app.models import (
     AskRequest,
     AskResponse,
+    DownloadStatusResponse,
     ErrorResponse,
     FallacyAnalysisRequest,
     FallacyAnalysisResult,
@@ -52,6 +62,7 @@ from app.models import (
     VideoMetadata,
     VideoRecord,
 )
+from app.services.downloader import download_video
 from app.services.fallacy_analyzer import analyze_fallacies
 from app.services.qa import ask_question
 from app.services.summarizer import generate_summary
@@ -63,6 +74,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings.download_dir.mkdir(parents=True, exist_ok=True)
     app.state.pool = await create_pool(str(settings.database_url))
     async with app.state.pool.acquire() as conn:
         await create_table(conn)
@@ -445,3 +457,122 @@ async def ask(request: AskRequest, conn: asyncpg.Connection = Depends(get_db)) -
         except Exception:
             logger.warning("Failed to save qa_history for %s", request.video_id)
     return AskResponse(answer=answer)
+
+
+async def _run_download_task(pool: asyncpg.Pool, video_id: str, url: str) -> None:
+    async with pool.acquire() as conn:
+        try:
+            path = await asyncio.to_thread(
+                download_video, video_id, url, settings.download_dir
+            )
+            await save_download_status(conn, video_id, "ready", path=str(path))
+        except Exception as exc:
+            logger.error("Download failed for %s: %s", video_id, exc)
+            await save_download_status(conn, video_id, "error", error=str(exc))
+
+
+@app.post("/api/videos/{video_id}/download", response_model=None)
+async def trigger_download(
+    video_id: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> DownloadStatusResponse | JSONResponse:
+    status_row = await get_download_status(conn, video_id)
+    if status_row is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+
+    current_status = status_row.get("download_status")
+
+    if current_status == "pending":
+        return JSONResponse(
+            status_code=409,
+            content=ErrorResponse(
+                error="download_in_progress",
+                message="A download is already in progress for this video.",
+            ).model_dump(),
+        )
+
+    if current_status == "ready":
+        return DownloadStatusResponse(
+            video_id=video_id,
+            status="ready",
+            downloaded_at=cast("datetime | None", status_row.get("downloaded_at")),
+            error_message=cast("str | None", status_row.get("error_message")),
+        )
+
+    await save_download_status(conn, video_id, "pending")
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    background_tasks.add_task(_run_download_task, request.app.state.pool, video_id, url)
+
+    return DownloadStatusResponse(video_id=video_id, status="pending")
+
+
+@app.get("/api/videos/{video_id}/download", response_model=None)
+async def get_download_status_endpoint(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> DownloadStatusResponse | JSONResponse:
+    status_row = await get_download_status(conn, video_id)
+    if status_row is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    return DownloadStatusResponse(
+        video_id=video_id,
+        status=cast("str | None", status_row.get("download_status")),  # type: ignore[arg-type]
+        downloaded_at=cast("datetime | None", status_row.get("downloaded_at")),
+        error_message=cast("str | None", status_row.get("error_message")),
+    )
+
+
+@app.get("/api/videos/{video_id}/stream", response_model=None)
+async def stream_video(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> FileResponse | JSONResponse:
+    status_row = await get_download_status(conn, video_id)
+    if status_row is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+
+    download_path = cast("str | None", status_row.get("download_path"))
+    if not download_path:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="file_not_found",
+                message="No downloaded file for this video.",
+            ).model_dump(),
+        )
+
+    file_path = Path(download_path)
+    if not file_path.exists():
+        # Auto-heal: reset DB state so the frontend can show the download button again.
+        # Without this, POST /download returns a no-op 200 (status still "ready") and
+        # the player would loop: load → 404 → retry → load → 404 forever.
+        await clear_download(conn, video_id)
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="file_not_found",
+                message="Downloaded file not found on disk.",
+            ).model_dump(),
+        )
+
+    return FileResponse(str(file_path), media_type="video/mp4")

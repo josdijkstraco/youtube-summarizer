@@ -109,3 +109,10 @@ export interface AskRequest {
 export interface AskResponse {
   answer: string;
 }
+
+export interface DownloadStatus {
+  video_id: string;
+  status: "pending" | "ready" | "error" | null;
+  downloaded_at: string | null; // ISO 8601 timestamp
+  error_message: string | null;
+}

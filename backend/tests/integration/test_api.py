@@ -780,3 +780,377 @@ class TestGetHistoryItemEndpoint:
             assert data["error"] == "not_found"
         finally:
             app.dependency_overrides.pop(get_db, None)
+
+
+# ---------------------------------------------------------------------------
+# T034: Download endpoint integration tests
+# ---------------------------------------------------------------------------
+
+
+def _make_conn(fetchrow_result: dict | None) -> AsyncMock:
+    """Return a mock asyncpg.Connection with a preset fetchrow return value."""
+    mock_conn = AsyncMock(spec=asyncpg.Connection)
+    mock_conn.fetchrow.return_value = fetchrow_result
+    mock_conn.execute.return_value = None
+    return mock_conn
+
+
+class TestPostDownloadEndpoint:
+    """Tests for POST /api/videos/{video_id}/download."""
+
+    def test_returns_404_for_unknown_video_id(self) -> None:
+        """Unknown video_id (no DB row) returns 404."""
+        mock_conn = _make_conn(None)
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.post(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "not_found")
+
+    def test_returns_409_when_already_pending(self) -> None:
+        """Second trigger while status is 'pending' returns 409 Conflict."""
+        mock_conn = _make_conn(
+            {
+                "download_status": "pending",
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.post(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 409
+        _assert_error_response(response.json(), "download_in_progress")
+        mock_conn.execute.assert_not_awaited()
+
+    def test_returns_200_noop_when_already_ready(self) -> None:
+        """Trigger while status is 'ready' returns 200 with current status, no re-download."""
+        mock_conn = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": "/app/downloads/dQw4w9WgXcQ.mp4",
+                "downloaded_at": datetime(2026, 5, 14, tzinfo=UTC),
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.post(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ready"
+        assert data["video_id"] == _FAKE_VIDEO_ID
+        # No save_download_status call (early return path)
+        mock_conn.execute.assert_not_awaited()
+
+    def test_sets_pending_and_schedules_background_task(self) -> None:
+        """Happy path: no prior download → sets pending, schedules task, returns pending."""
+        mock_conn = _make_conn(
+            {
+                "download_status": None,
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+        # pool must be reachable via request.app.state.pool inside the endpoint
+        app.state.pool = MagicMock()
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            with patch("app.main._run_download_task", new_callable=AsyncMock):
+                response = client.post(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "pending"
+        assert data["video_id"] == _FAKE_VIDEO_ID
+        # save_download_status called once to set status="pending"
+        mock_conn.execute.assert_awaited_once()
+
+
+class TestGetDownloadStatusEndpoint:
+    """Tests for GET /api/videos/{video_id}/download."""
+
+    def test_returns_404_for_unknown_video_id(self) -> None:
+        mock_conn = _make_conn(None)
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "not_found")
+
+    def test_returns_null_status_when_no_download_triggered(self) -> None:
+        mock_conn = _make_conn(
+            {
+                "download_status": None,
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] is None
+        assert data["video_id"] == _FAKE_VIDEO_ID
+
+    def test_returns_pending_status(self) -> None:
+        mock_conn = _make_conn(
+            {
+                "download_status": "pending",
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "pending"
+
+    def test_returns_ready_status_with_downloaded_at(self) -> None:
+        mock_conn = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": "/app/downloads/dQw4w9WgXcQ.mp4",
+                "downloaded_at": datetime(2026, 5, 14, tzinfo=UTC),
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ready"
+        assert data["downloaded_at"] is not None
+
+    def test_returns_error_status_with_message(self) -> None:
+        mock_conn = _make_conn(
+            {
+                "download_status": "error",
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": "Video unavailable",
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "error"
+        assert data["error_message"] == "Video unavailable"
+
+
+class TestGetStreamEndpoint:
+    """Tests for GET /api/videos/{video_id}/stream."""
+
+    def test_returns_404_for_unknown_video_id(self) -> None:
+        mock_conn = _make_conn(None)
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/stream")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "not_found")
+
+    def test_returns_404_when_no_download_path(self) -> None:
+        """Row exists but download_path is NULL → 404 file_not_found."""
+        mock_conn = _make_conn(
+            {
+                "download_status": None,
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/stream")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "file_not_found")
+
+    def test_returns_404_when_file_missing_on_disk(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """download_path set in DB but file doesn't exist → 404 file_not_found."""
+        missing = str(tmp_path / "nonexistent.mp4")
+        mock_conn = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": missing,
+                "downloaded_at": datetime(2026, 5, 14, tzinfo=UTC),
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/stream")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "file_not_found")
+
+    def test_serves_file_with_206_for_range_request(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Valid file + Range header → 206 Partial Content with Content-Range."""
+        mp4_file = tmp_path / f"{_FAKE_VIDEO_ID}.mp4"
+        mp4_file.write_bytes(b"\x00" * 4096)
+
+        mock_conn = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": str(mp4_file),
+                "downloaded_at": datetime(2026, 5, 14, tzinfo=UTC),
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.get(
+                f"/api/videos/{_FAKE_VIDEO_ID}/stream",
+                headers={"Range": "bytes=0-1023"},
+            )
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 206
+        assert "Content-Range" in response.headers
+
+    def test_auto_heals_stale_ready_status(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """T046: GET /stream with missing file calls clear_download (auto-heal).
+        After auto-heal, GET /download returns status: null so the frontend
+        can show the download button instead of looping on a broken player.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        missing = str(tmp_path / "nonexistent.mp4")
+        mock_conn_stream = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": missing,
+                "downloaded_at": datetime(2026, 5, 14, tzinfo=UTC),
+                "error_message": None,
+            }
+        )
+
+        async def override_stream():
+            yield mock_conn_stream
+
+        app.dependency_overrides[get_db] = override_stream
+        try:
+            with patch("app.main.clear_download", new_callable=AsyncMock) as mock_clear:
+                response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/stream")
+                assert response.status_code == 404
+                _assert_error_response(response.json(), "file_not_found")
+                mock_clear.assert_called_once()
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        # After auto-heal clears the DB, GET /download should return null status.
+        mock_conn_status = _make_conn(
+            {
+                "download_status": None,
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override_status():
+            yield mock_conn_status
+
+        app.dependency_overrides[get_db] = override_status
+        try:
+            status_response = client.get(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert status_response.status_code == 200
+        assert status_response.json()["status"] is None

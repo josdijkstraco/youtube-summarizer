@@ -154,3 +154,10 @@ class AskResponse(BaseModel):
 
 class NotesUpdateRequest(BaseModel):
     notes: str | None = None
+
+
+class DownloadStatusResponse(BaseModel):
+    video_id: str
+    status: Literal["pending", "ready", "error"] | None = None
+    downloaded_at: datetime | None = None
+    error_message: str | None = None

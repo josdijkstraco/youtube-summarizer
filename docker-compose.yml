@@ -8,6 +8,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./cookies.txt:/app/cookies.txt:ro
+      - ./downloads:/app/downloads
     env_file:
       - ./backend/.env
     restart: unless-stopped

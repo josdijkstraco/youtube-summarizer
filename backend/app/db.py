@@ -1,10 +1,14 @@
 import json
+import logging
+import os
 from collections.abc import AsyncGenerator
 
 import asyncpg  # type: ignore[import-untyped]
 from fastapi import Request
 
 from app.models import FallacyAnalysisResult, Highlight, HistoryItem, QaMessage, VideoRecord
+
+logger = logging.getLogger(__name__)
 
 
 async def create_pool(dsn: str) -> asyncpg.Pool:
@@ -117,6 +121,50 @@ async def create_table(conn: asyncpg.Connection) -> None:
             ) THEN
                 ALTER TABLE youtube_summarizer.summaries
                 ADD COLUMN notes TEXT DEFAULT NULL;
+            END IF;
+        END $$;
+        """
+    )
+    # Add download_status, download_path, downloaded_at columns if they don't exist
+    await conn.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'download_status'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN download_status TEXT DEFAULT NULL;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'download_path'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN download_path TEXT DEFAULT NULL;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'downloaded_at'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN downloaded_at TIMESTAMPTZ DEFAULT NULL;
+            END IF;
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'youtube_summarizer'
+                AND table_name = 'summaries'
+                AND column_name = 'error_message'
+            ) THEN
+                ALTER TABLE youtube_summarizer.summaries
+                ADD COLUMN error_message TEXT DEFAULT NULL;
             END IF;
         END $$;
         """
@@ -255,6 +303,57 @@ async def save_notes(conn: asyncpg.Connection, video_id: str, notes: str | None)
     return result == "UPDATE 1"
 
 
+async def save_download_status(
+    conn: asyncpg.Connection,
+    video_id: str,
+    status: str,
+    path: str | None = None,
+    error: str | None = None,
+) -> None:
+    await conn.execute(
+        """
+        UPDATE youtube_summarizer.summaries
+           SET download_status = $2,
+               download_path   = $3,
+               downloaded_at   = CASE WHEN $2 = 'ready'
+                                       THEN now() ELSE downloaded_at END,
+               error_message   = $4
+         WHERE video_id = $1
+        """,
+        video_id,
+        status,
+        path,
+        error,
+    )
+
+
+async def clear_download(conn: asyncpg.Connection, video_id: str) -> None:
+    await conn.execute(
+        """
+        UPDATE youtube_summarizer.summaries
+           SET download_status = NULL,
+               download_path   = NULL,
+               downloaded_at   = NULL,
+               error_message   = NULL
+         WHERE video_id = $1
+        """,
+        video_id,
+    )
+
+
+async def get_download_status(
+    conn: asyncpg.Connection, video_id: str
+) -> dict[str, object] | None:
+    row = await conn.fetchrow(
+        "SELECT download_status, download_path, downloaded_at, error_message "
+        "FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
+    if row is None:
+        return None
+    return dict(row)
+
+
 async def get_fallacy_analysis(
     conn: asyncpg.Connection,
     video_id: str,
@@ -274,6 +373,19 @@ async def get_fallacy_analysis(
 
 async def soft_delete(conn: asyncpg.Connection, video_id: str) -> bool:
     """Soft-delete a video record. Returns True if a record was deleted."""
+    row = await conn.fetchrow(
+        "SELECT download_path FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
+    if row is None:
+        return False
+    download_path: str | None = row["download_path"]
+    if download_path:
+        try:
+            os.remove(download_path)
+        except OSError as exc:
+            logger.warning("Could not delete download file %s: %s", download_path, exc)
+    await clear_download(conn, video_id)
     result = await conn.execute(
         "UPDATE youtube_summarizer.summaries SET deleted_at = now() "
         "WHERE video_id = $1 AND deleted_at IS NULL",

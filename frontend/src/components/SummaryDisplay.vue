@@ -2,6 +2,7 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
 import { addHighlight, removeHighlight, askQuestion, saveNotes } from "@/services/api";
+import VideoPlayer from "@/components/VideoPlayer.vue";
 
 const props = defineProps<{
   summary: string;
@@ -14,7 +15,7 @@ const props = defineProps<{
   initialNotes?: string | null;
 }>();
 
-const activeTab = ref<"summary" | "transcript" | "qa" | "notes">("summary");
+const activeTab = ref<"summary" | "transcript" | "qa" | "notes" | "video">("summary");
 
 // Notes state
 const notes = ref<string>(props.initialNotes ?? "");
@@ -471,9 +472,18 @@ onUnmounted(() => {
       >
         Notes
       </button>
+      <button
+        :class="[
+          'summary-display__tab',
+          { 'is-active': activeTab === 'video' },
+        ]"
+        @click="activeTab = 'video'"
+      >
+        Video
+      </button>
     </div>
     <div
-      v-if="activeTab !== 'qa' && activeTab !== 'notes'"
+      v-if="activeTab !== 'qa' && activeTab !== 'notes' && activeTab !== 'video'"
       ref="contentEl"
       class="summary-display__content"
       @mouseup="onSummaryMouseUp"
@@ -538,6 +548,12 @@ onUnmounted(() => {
         <span v-else-if="notesSaveStatus === 'saved'">Saved</span>
         <span v-else-if="notesSaveStatus === 'error'">Failed to save</span>
       </div>
+    </div>
+
+    <!-- Video panel -->
+    <div v-if="activeTab === 'video'" class="summary-display__video">
+      <VideoPlayer v-if="videoId" :video-id="videoId" />
+      <p v-else class="summary-display__video-unavailable">No video ID available.</p>
     </div>
 
     <!-- Highlight popover — teleported to body to avoid clipping -->
@@ -907,6 +923,17 @@ onUnmounted(() => {
 @keyframes qa-dot-bounce {
   0%, 80%, 100% { transform: translateY(0); }
   40% { transform: translateY(-5px); }
+}
+
+/* Video panel */
+.summary-display__video {
+  padding: 1.25rem 1.5rem;
+}
+
+.summary-display__video-unavailable {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #9CA3AF;
 }
 </style>
 

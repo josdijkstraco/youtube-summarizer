@@ -1,11 +1,18 @@
+import logging
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.db import (
+    clear_download,
     get_by_video_id,
+    get_download_status,
     get_full_record,
     list_recent,
+    save_download_status,
     save_record,
+    soft_delete,
 )
 from app.models import HistoryItem, VideoRecord
 
@@ -160,3 +167,132 @@ class TestGetFullRecord:
         result = await get_full_record(mock_conn, "notfound1234")
 
         assert result is None
+
+
+class TestSaveDownloadStatus:
+    async def test_sets_pending_status(self) -> None:
+        mock_conn = AsyncMock()
+
+        await save_download_status(mock_conn, _FAKE_VIDEO_ID, "pending")
+
+        mock_conn.execute.assert_awaited_once()
+        sql, vid, status, path, error = mock_conn.execute.call_args.args
+        assert vid == _FAKE_VIDEO_ID
+        assert status == "pending"
+        assert path is None
+        assert error is None
+
+    async def test_sets_ready_status_with_path(self) -> None:
+        mock_conn = AsyncMock()
+
+        await save_download_status(
+            mock_conn, _FAKE_VIDEO_ID, "ready", path="/downloads/abc.mp4"
+        )
+
+        mock_conn.execute.assert_awaited_once()
+        _, vid, status, path, error = mock_conn.execute.call_args.args
+        assert vid == _FAKE_VIDEO_ID
+        assert status == "ready"
+        assert path == "/downloads/abc.mp4"
+        assert error is None
+
+    async def test_sets_error_status_with_message(self) -> None:
+        mock_conn = AsyncMock()
+
+        await save_download_status(
+            mock_conn, _FAKE_VIDEO_ID, "error", error="geo-blocked"
+        )
+
+        mock_conn.execute.assert_awaited_once()
+        _, vid, status, path, error = mock_conn.execute.call_args.args
+        assert vid == _FAKE_VIDEO_ID
+        assert status == "error"
+        assert path is None
+        assert error == "geo-blocked"
+
+
+class TestClearDownload:
+    async def test_nulls_all_download_columns(self) -> None:
+        mock_conn = AsyncMock()
+
+        await clear_download(mock_conn, _FAKE_VIDEO_ID)
+
+        mock_conn.execute.assert_awaited_once()
+        sql, vid = mock_conn.execute.call_args.args
+        assert vid == _FAKE_VIDEO_ID
+        assert "NULL" in sql
+
+
+class TestGetDownloadStatus:
+    async def test_returns_none_when_no_row(self) -> None:
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = None
+
+        result = await get_download_status(mock_conn, _FAKE_VIDEO_ID)
+
+        assert result is None
+
+    async def test_returns_dict_when_row_found(self) -> None:
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {
+            "download_status": "ready",
+            "download_path": "/downloads/abc.mp4",
+            "downloaded_at": _FAKE_CREATED_AT,
+            "error_message": None,
+        }
+
+        result = await get_download_status(mock_conn, _FAKE_VIDEO_ID)
+
+        assert isinstance(result, dict)
+        assert result["download_status"] == "ready"
+        assert result["download_path"] == "/downloads/abc.mp4"
+        assert result["error_message"] is None
+
+
+class TestSoftDelete:
+    async def test_removes_file_and_returns_true(self) -> None:
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": "/downloads/abc.mp4"}
+        mock_conn.execute.return_value = "UPDATE 1"
+
+        with patch("app.db.os.remove") as mock_remove:
+            result = await soft_delete(mock_conn, _FAKE_VIDEO_ID)
+
+        mock_remove.assert_called_once_with("/downloads/abc.mp4")
+        assert result is True
+
+    async def test_succeeds_when_file_missing_logs_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": "/downloads/gone.mp4"}
+        mock_conn.execute.return_value = "UPDATE 1"
+
+        with (
+            patch("app.db.os.remove", side_effect=OSError("no such file")),
+            caplog.at_level(logging.WARNING, logger="app.db"),
+        ):
+            result = await soft_delete(mock_conn, _FAKE_VIDEO_ID)
+
+        assert result is True
+        assert any("gone.mp4" in msg for msg in caplog.messages)
+
+    async def test_clears_download_columns_even_on_oserror(self) -> None:
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": "/downloads/abc.mp4"}
+        mock_conn.execute.return_value = "UPDATE 1"
+
+        with patch("app.db.os.remove", side_effect=OSError("no such file")):
+            await soft_delete(mock_conn, _FAKE_VIDEO_ID)
+
+        # execute called twice: once by clear_download, once by soft_delete's UPDATE
+        assert mock_conn.execute.await_count == 2
+
+    async def test_returns_false_when_no_record(self) -> None:
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = None
+
+        result = await soft_delete(mock_conn, _FAKE_VIDEO_ID)
+
+        assert result is False
+        mock_conn.execute.assert_not_awaited()

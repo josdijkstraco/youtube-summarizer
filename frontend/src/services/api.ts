@@ -8,6 +8,7 @@ import type {
   VideoRecord,
   QaMessage,
   AskResponse,
+  DownloadStatus,
 } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -243,6 +244,59 @@ export async function saveNotes(
     }
     throw new ApiError(errorResponse);
   }
+}
+
+export async function triggerDownload(
+  videoId: string,
+): Promise<DownloadStatus> {
+  const response = await fetch(
+    `${API_BASE}/api/videos/${videoId}/download`,
+    { method: "POST" },
+  );
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: `Server returned ${response.status} ${response.statusText}`,
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export async function getDownloadStatus(
+  videoId: string,
+): Promise<DownloadStatus> {
+  const response = await fetch(
+    `${API_BASE}/api/videos/${videoId}/download`,
+  );
+
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: `Server returned ${response.status} ${response.statusText}`,
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+
+  return response.json();
+}
+
+export function getStreamUrl(videoId: string): string {
+  return `${API_BASE}/api/videos/${videoId}/stream`;
 }
 
 export async function askQuestion(
