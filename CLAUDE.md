@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # youtube-summarizer-4.6 Development Guidelines
 
 ## Stack
@@ -8,6 +12,7 @@
 | Database driver | asyncpg (async PostgreSQL) |
 | AI | OpenAI SDK — `gpt-4o-mini` for summarization/fallacy, `gpt-4o` for Q&A |
 | Transcripts | youtube-transcript-api |
+| Video download | yt-dlp |
 | Metadata | httpx → YouTube oEmbed |
 | Config | pydantic-settings (loads `backend/.env`) |
 | Frontend | Vue 3, TypeScript 5.5, Vite 5.4 |
@@ -18,13 +23,16 @@
 # Backend
 cd backend
 uvicorn app.main:app --reload --port 8002
-pytest
+pytest                              # all tests
+pytest tests/unit/test_db.py        # single file
+pytest -k test_name                 # single test by name
 ruff check .
 mypy app/
 
 # Frontend
 cd frontend
 npm run dev        # dev server at :5173
+npm run test       # vitest (jsdom)
 npm run build      # type-check + production build
 npm run lint
 
@@ -36,21 +44,26 @@ docker-compose up -d --build
 
 ```
 backend/app/
-  main.py          # FastAPI app + all 11 endpoints
+  main.py          # FastAPI app + all 14 endpoints
   models.py        # Pydantic request/response models
   db.py            # PostgreSQL functions (asyncpg)
-  config.py        # Settings from .env
+  config.py        # Settings from .env (includes download_dir)
   services/
     summarizer.py        # OpenAI summarization + chunking
     fallacy_analyzer.py  # Fallacy detection via OpenAI (JSON mode)
     qa.py                # Q&A via gpt-4o
     transcript.py        # YouTube transcript fetching + cookie auth
     youtube.py           # Video ID extraction, oEmbed metadata
+    downloader.py        # yt-dlp video download (sync, run via asyncio.to_thread)
+backend/tests/
+  unit/            # Mocked unit tests (no DB/network)
+  integration/     # FastAPI TestClient tests with mocked get_db
 frontend/src/
   App.vue                # Root — all top-level state
-  components/            # SummaryDisplay, HistoryPanel, etc.
+  components/            # SummaryDisplay, HistoryPanel, VideoPlayer, etc.
   services/api.ts        # All API calls + ApiError class
   types/index.ts         # TypeScript interfaces (mirror Pydantic models)
+downloads/               # Downloaded video files (served via /api/videos/{id}/stream)
 ```
 
 ## Architecture Decisions
@@ -86,10 +99,13 @@ Every non-2xx response must return `ErrorResponse(error="machine_code", message=
 When adding a field to a Pydantic model, add the matching field to `frontend/src/types/index.ts`. They must stay in sync — there is no codegen.
 
 ### No new dependencies without justification
-The backend deps (fastapi, asyncpg, openai, httpx, youtube-transcript-api, pydantic-settings) cover all current needs. Adding a dependency requires a clear reason it can't be done with what's already installed.
+The backend deps (fastapi, asyncpg, openai, httpx, youtube-transcript-api, yt-dlp, pydantic-settings) cover all current needs. Adding a dependency requires a clear reason it can't be done with what's already installed.
 
 ### Cookie auth for YouTube IP blocks
 `transcript.py` checks for `/app/cookies.txt` (Netscape format). If present, it builds a `requests.Session` with those cookies and passes it to `YouTubeTranscriptApi`. In Docker this is mounted via `./cookies.txt:/app/cookies.txt:ro`.
 
 ### Chunked summarization for long transcripts
 `summarizer.py` splits transcripts exceeding 400K characters (≈100K tokens) into word-boundary chunks, summarizes each, then combines. Token counts are aggregated across all calls. The 400K limit leaves headroom for the system prompt within gpt-4o-mini's 128K token context.
+
+### Video download is a two-step async background flow
+`POST /api/videos/{video_id}/download` sets status to `pending` and enqueues `_run_download_task` via FastAPI `BackgroundTasks`. The task calls `download_video()` (sync yt-dlp) inside `asyncio.to_thread`, then sets status to `ready` or `error`. The frontend polls `GET /api/videos/{video_id}/download` for status. Videos are capped at 3 hours (`_MAX_DURATION_SECONDS`). `GET /api/videos/{video_id}/stream` serves the file; if the file is missing on disk it auto-heals by calling `clear_download()` so the frontend can retry.
