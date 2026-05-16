@@ -1,23 +1,26 @@
 #!/bin/bash
 set -e
 
-if [ -z "$1" ] || [ -z "$2" ]; then
-  echo "Usage: $0 <tasks-file> <iterations>"
+if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
+  echo "Usage: $0 <prd-file> <tasks-file> <progress-file> <iterations>"
   exit 1
 fi
 
-TASKS_FILE="$1"
-ITERATIONS="$2"
+PRD_FILE="$1"
+TASKS_FILE="$2"
+PROGRESS_FILE="$3"
+ITERATIONS="$4"
 
 for ((i=1; i<=ITERATIONS; i++)); do
   result=$(claude --dangerously-skip-permissions --output-format text --verbose -p \
-  "The PRD can be found here: @plans/prd-video-download-playback.md
+  "The PRD can be found here: @${PRD_FILE}
   The task list can be found here: @${TASKS_FILE} \
-  The progress file can be found here: @progress.txt \
+  The progress file can be found here: @${PROGRESS_FILE} \
   1. Based on the progress file and the task list, identify the next task to implement. \
-  2. Implement the task. \
-  3. Run your tests and type checks. \
-  4. Write a delta to the progress file (signatures, decisions, drift). \
+  2. Consult the PRD for acceptance criteria, design decisions, and constraints relevant to that task. \
+  3. Implement the task. \
+  4. Run your tests and type checks. \
+  5. Write a delta to the progress file (signatures, decisions, drift). \
   ONLY WORK ON A SINGLE TASK. \
   If the task list is complete, output <promise>COMPLETE</promise>.")
 
