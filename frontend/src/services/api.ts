@@ -299,6 +299,27 @@ export function getStreamUrl(videoId: string): string {
   return `${API_BASE}/api/videos/${videoId}/stream`;
 }
 
+export async function deleteDownload(videoId: string): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/videos/${videoId}/download`,
+    { method: "DELETE" },
+  );
+
+  if (!response.ok && response.status !== 204) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: `Server returned ${response.status} ${response.statusText}`,
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
+}
+
 export async function askQuestion(
   transcript: string,
   question: string,

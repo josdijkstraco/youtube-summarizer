@@ -1154,3 +1154,131 @@ class TestGetStreamEndpoint:
 
         assert status_response.status_code == 200
         assert status_response.json()["status"] is None
+
+
+# ---------------------------------------------------------------------------
+# T014: DELETE /api/videos/{video_id}/download integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestDeleteDownloadEndpoint:
+    """Tests for DELETE /api/videos/{video_id}/download."""
+
+    def test_returns_404_when_no_record_exists(self) -> None:
+        """No DB row for video_id → 404 not_found."""
+        mock_conn = _make_conn(None)
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.delete(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "not_found")
+
+    def test_returns_204_when_download_exists_and_file_deleted(self) -> None:
+        """Record exists with a download_path → delete_download called, 204 returned."""
+        mock_conn = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": "/app/downloads/dQw4w9WgXcQ.mp4",
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            with patch(
+                "app.main.delete_download",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_delete:
+                response = client.delete(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+                mock_delete.assert_awaited_once()
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 204
+        assert response.content == b""
+
+    def test_returns_204_when_file_missing_on_disk(self) -> None:
+        """Record exists but file already gone from disk → delete_download returns False, still 204."""
+        mock_conn = _make_conn(
+            {
+                "download_status": "ready",
+                "download_path": "/app/downloads/dQw4w9WgXcQ.mp4",
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            with patch(
+                "app.main.delete_download",
+                new_callable=AsyncMock,
+                return_value=False,
+            ) as mock_delete:
+                response = client.delete(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+                mock_delete.assert_awaited_once()
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 204
+
+    def test_returns_404_for_soft_deleted_record(self) -> None:
+        """Soft-deleted record is filtered by get_download_status → 404 not_found."""
+        # get_download_status queries WHERE deleted_at IS NULL, so soft-deleted rows
+        # return None — indistinguishable from a missing record at the endpoint level.
+        mock_conn = _make_conn(None)
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            response = client.delete(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 404
+        _assert_error_response(response.json(), "not_found")
+
+    def test_returns_204_on_idempotent_second_call(self) -> None:
+        """Second delete when download_path already NULL → delete_download still called, 204 returned."""
+        mock_conn = _make_conn(
+            {
+                "download_status": None,
+                "download_path": None,
+                "downloaded_at": None,
+                "error_message": None,
+            }
+        )
+
+        async def override():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override
+        try:
+            with patch(
+                "app.main.delete_download",
+                new_callable=AsyncMock,
+                return_value=False,
+            ) as mock_delete:
+                response = client.delete(f"/api/videos/{_FAKE_VIDEO_ID}/download")
+                mock_delete.assert_awaited_once()
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 204

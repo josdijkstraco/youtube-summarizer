@@ -6,6 +6,7 @@ import pytest
 
 from app.db import (
     clear_download,
+    delete_download,
     get_by_video_id,
     get_download_status,
     get_full_record,
@@ -296,3 +297,86 @@ class TestSoftDelete:
 
         assert result is False
         mock_conn.execute.assert_not_awaited()
+
+
+class TestDeleteDownload:
+    async def test_file_exists_deleted_returns_true(self) -> None:
+        """File on disk is removed, DB columns cleared, returns True."""
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": "/downloads/abc.mp4"}
+
+        with (
+            patch("app.db.os.remove") as mock_remove,
+            patch("app.db.clear_download", new_callable=AsyncMock) as mock_clear,
+        ):
+            result = await delete_download(mock_conn, _FAKE_VIDEO_ID)
+
+        mock_remove.assert_called_once_with("/downloads/abc.mp4")
+        mock_clear.assert_awaited_once_with(mock_conn, _FAKE_VIDEO_ID)
+        assert result is True
+
+    async def test_file_missing_logs_warning_returns_false(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """FileNotFoundError logs a warning but still clears DB columns, returns False."""
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": "/downloads/gone.mp4"}
+
+        with (
+            patch("app.db.os.remove", side_effect=FileNotFoundError()),
+            patch("app.db.clear_download", new_callable=AsyncMock) as mock_clear,
+            caplog.at_level(logging.WARNING, logger="app.db"),
+        ):
+            result = await delete_download(mock_conn, _FAKE_VIDEO_ID)
+
+        assert result is False
+        mock_clear.assert_awaited_once_with(mock_conn, _FAKE_VIDEO_ID)
+        assert any("gone.mp4" in msg for msg in caplog.messages)
+
+    async def test_other_oserror_logs_warning_clears_db(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Non-FileNotFoundError OSError logs a warning and still clears DB columns."""
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": "/downloads/locked.mp4"}
+
+        with (
+            patch("app.db.os.remove", side_effect=OSError("permission denied")),
+            patch("app.db.clear_download", new_callable=AsyncMock) as mock_clear,
+            caplog.at_level(logging.WARNING, logger="app.db"),
+        ):
+            result = await delete_download(mock_conn, _FAKE_VIDEO_ID)
+
+        assert result is False
+        mock_clear.assert_awaited_once_with(mock_conn, _FAKE_VIDEO_ID)
+        assert any("locked.mp4" in msg for msg in caplog.messages)
+
+    async def test_idempotent_when_download_path_null(self) -> None:
+        """When download_path is NULL in DB, no file deletion is attempted, returns False."""
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = {"download_path": None}
+
+        with (
+            patch("app.db.os.remove") as mock_remove,
+            patch("app.db.clear_download", new_callable=AsyncMock) as mock_clear,
+        ):
+            result = await delete_download(mock_conn, _FAKE_VIDEO_ID)
+
+        mock_remove.assert_not_called()
+        mock_clear.assert_awaited_once_with(mock_conn, _FAKE_VIDEO_ID)
+        assert result is False
+
+    async def test_idempotent_when_no_row(self) -> None:
+        """When no DB record exists (soft-deleted or missing), no file deletion, returns False."""
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow.return_value = None
+
+        with (
+            patch("app.db.os.remove") as mock_remove,
+            patch("app.db.clear_download", new_callable=AsyncMock) as mock_clear,
+        ):
+            result = await delete_download(mock_conn, _FAKE_VIDEO_ID)
+
+        mock_remove.assert_not_called()
+        mock_clear.assert_awaited_once_with(mock_conn, _FAKE_VIDEO_ID)
+        assert result is False

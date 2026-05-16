@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import type { DownloadStatus } from "@/types";
-import { triggerDownload, getDownloadStatus, getStreamUrl } from "@/services/api";
+import { triggerDownload, getDownloadStatus, getStreamUrl, deleteDownload } from "@/services/api";
+import Toast from "@/components/Toast.vue";
 
 const props = defineProps<{
   videoId: string;
@@ -12,6 +13,11 @@ type LocalStatus = "idle" | "pending" | "ready" | "error";
 const status = ref<LocalStatus>("idle");
 const errorMessage = ref<string | null>(null);
 const isTriggering = ref(false);
+const isDeleting = ref(false);
+const showDeleteModal = ref(false);
+const showToast = ref(false);
+const toastMessage = ref("");
+const toastType = ref<"success" | "error" | "info">("success");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 function stopPolling() {
@@ -80,6 +86,34 @@ async function handleRetry() {
   await handleDownload();
 }
 
+async function handleDelete() {
+  isDeleting.value = true;
+  errorMessage.value = null;
+  try {
+    await deleteDownload(props.videoId);
+    showDeleteModal.value = false;
+    isDeleting.value = false;
+    status.value = "idle";
+    toastMessage.value = "Video deleted successfully";
+    toastType.value = "success";
+    showToast.value = true;
+  } catch (err) {
+    isDeleting.value = false;
+    showDeleteModal.value = false;
+    toastMessage.value = err instanceof Error ? err.message : "Failed to delete video.";
+    toastType.value = "error";
+    showToast.value = true;
+  }
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && showDeleteModal.value && !isDeleting.value) {
+    showDeleteModal.value = false;
+  }
+}
+
+onMounted(() => document.addEventListener("keydown", onKeydown));
+
 // Re-check whenever videoId changes (different history item selected)
 watch(
   () => props.videoId,
@@ -92,7 +126,10 @@ watch(
   { immediate: true },
 );
 
-onUnmounted(stopPolling);
+onUnmounted(() => {
+  stopPolling();
+  document.removeEventListener("keydown", onKeydown);
+});
 </script>
 
 <template>
@@ -123,6 +160,15 @@ onUnmounted(stopPolling);
         class="video-player__video"
         :src="getStreamUrl(videoId)"
       />
+      <div class="video-player__ready-actions">
+        <button
+          class="video-player__btn video-player__btn--destructive"
+          @click="showDeleteModal = true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Delete video
+        </button>
+      </div>
     </div>
 
     <!-- Error: message + retry -->
@@ -139,6 +185,47 @@ onUnmounted(stopPolling);
       </button>
     </div>
   </div>
+
+  <!-- Toast notification -->
+  <Toast
+    v-if="showToast"
+    :message="toastMessage"
+    :type="toastType"
+    @dismiss="showToast = false"
+  />
+
+  <!-- Confirmation modal -->
+  <Teleport to="body">
+    <div
+      v-if="showDeleteModal"
+      class="vp-modal-overlay"
+      @click.self="!isDeleting && (showDeleteModal = false)"
+    >
+      <div class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-modal-title">
+        <h3 id="vp-modal-title" class="vp-modal__title">Delete video</h3>
+        <p class="vp-modal__message">
+          Are you sure you want to delete this downloaded video? You can re-download it later.
+        </p>
+        <div class="vp-modal__actions">
+          <button
+            class="video-player__btn vp-modal__btn--cancel"
+            :disabled="isDeleting"
+            @click="showDeleteModal = false"
+          >
+            Cancel
+          </button>
+          <button
+            class="video-player__btn video-player__btn--destructive"
+            :disabled="isDeleting"
+            @click="handleDelete"
+          >
+            <span v-if="isDeleting" class="vp-modal__btn-spinner" aria-hidden="true" />
+            <span>{{ isDeleting ? "Deleting…" : "Delete" }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -199,9 +286,27 @@ onUnmounted(stopPolling);
   background: #1D4ED8;
 }
 
+.video-player__btn--destructive {
+  background: #DC2626;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.video-player__btn--destructive:hover:not(:disabled) {
+  background: #B91C1C;
+}
+
 .video-player__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.video-player__ready-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.75rem;
 }
 
 /* Spinner */
@@ -218,6 +323,19 @@ onUnmounted(stopPolling);
   to { transform: rotate(360deg); }
 }
 
+/* Inline button spinner */
+.vp-modal__btn-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: vp-spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
 /* Video element */
 .video-player__ready {
   width: 100%;
@@ -228,5 +346,54 @@ onUnmounted(stopPolling);
   border-radius: 8px;
   background: #000;
   display: block;
+}
+
+/* Confirmation modal */
+.vp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.vp-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: min(420px, 90vw);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.vp-modal__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+  font-family: 'Manrope', sans-serif;
+}
+
+.vp-modal__message {
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  color: #6B7280;
+  line-height: 1.5;
+}
+
+.vp-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.vp-modal__btn--cancel {
+  background: #F3F4F6;
+  color: #374151;
+}
+
+.vp-modal__btn--cancel:hover:not(:disabled) {
+  background: #E5E7EB;
 }
 </style>

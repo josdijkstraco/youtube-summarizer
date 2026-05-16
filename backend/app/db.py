@@ -354,6 +354,30 @@ async def get_download_status(
     return dict(row)
 
 
+async def delete_download(conn: asyncpg.Connection, video_id: str) -> bool:
+    """Delete the downloaded file for a video and clear download columns.
+
+    Returns True if the file existed on disk and was deleted, False if the file
+    was already missing. Always clears download columns regardless of disk state.
+    """
+    row = await conn.fetchrow(
+        "SELECT download_path FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        video_id,
+    )
+    download_path: str | None = row["download_path"] if row else None
+    file_deleted = False
+    if download_path:
+        try:
+            os.remove(download_path)
+            file_deleted = True
+        except FileNotFoundError:
+            logger.warning("Download file not found on disk: %s", download_path)
+        except OSError as exc:
+            logger.warning("Could not delete download file %s: %s", download_path, exc)
+    await clear_download(conn, video_id)
+    return file_deleted
+
+
 async def get_fallacy_analysis(
     conn: asyncpg.Connection,
     video_id: str,

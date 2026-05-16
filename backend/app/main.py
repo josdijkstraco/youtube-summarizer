@@ -29,6 +29,7 @@ from app.db import (
     close_pool,
     create_pool,
     create_table,
+    delete_download,
     get_by_video_id,
     get_db,
     get_download_status,
@@ -534,6 +535,23 @@ async def get_download_status_endpoint(
         downloaded_at=cast("datetime | None", status_row.get("downloaded_at")),
         error_message=cast("str | None", status_row.get("error_message")),
     )
+
+
+@app.delete("/api/videos/{video_id}/download", status_code=204)
+async def delete_download_endpoint(
+    video_id: str,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> None:
+    status_row = await get_download_status(conn, video_id)
+    if status_row is None:
+        return JSONResponse(
+            status_code=404,
+            content=ErrorResponse(
+                error="not_found",
+                message=f"No record found for video_id: {video_id}",
+            ).model_dump(),
+        )
+    await delete_download(conn, video_id)
 
 
 @app.get("/api/videos/{video_id}/stream", response_model=None)
