@@ -142,6 +142,17 @@ class HistoryResponse(BaseModel):
     items: list[HistoryItem]
 
 
+class DownloadedItem(BaseModel):
+    video_id: str
+    title: str | None
+    thumbnail_url: str | None
+    downloaded_at: datetime
+
+
+class DownloadedListResponse(BaseModel):
+    items: list[DownloadedItem]
+
+
 class AskRequest(BaseModel):
     transcript: str
     question: str

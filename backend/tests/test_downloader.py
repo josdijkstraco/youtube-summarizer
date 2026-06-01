@@ -1,5 +1,6 @@
 """Unit tests for backend/app/services/downloader.py — all yt-dlp calls mocked."""
 
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,6 +15,16 @@ def output_dir(tmp_path: Path) -> Path:
     return tmp_path / "downloads"
 
 
+def _make_file(path: Path) -> Callable[[object], None]:
+    """Return a download side_effect that creates `path` on disk."""
+
+    def _side_effect(_: object) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+    return _side_effect
+
+
 class TestDownloadVideoSuccess:
     def test_returns_expected_path(self, output_dir: Path) -> None:
         expected = output_dir / "abc123.mp4"
@@ -22,7 +33,7 @@ class TestDownloadVideoSuccess:
         mock_ydl.__enter__ = lambda s: s
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"duration": 60}
-        mock_ydl.download.side_effect = lambda _: expected.parent.mkdir(parents=True, exist_ok=True) or expected.touch()
+        mock_ydl.download.side_effect = _make_file(expected)
 
         with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
             result = download_video("abc123", "https://youtu.be/abc123", output_dir)
@@ -36,7 +47,7 @@ class TestDownloadVideoSuccess:
         mock_ydl.__enter__ = lambda s: s
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"duration": 60}
-        mock_ydl.download.side_effect = lambda _urls: (expected.parent.mkdir(parents=True, exist_ok=True) or expected.touch())
+        mock_ydl.download.side_effect = _make_file(expected)
 
         with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
             download_video("abc123", "https://youtu.be/abc123", output_dir)
@@ -51,7 +62,7 @@ class TestDownloadVideoSuccess:
         mock_ydl.__enter__ = lambda s: s
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = None
-        mock_ydl.download.side_effect = lambda _: expected.parent.mkdir(parents=True, exist_ok=True) or expected.touch()
+        mock_ydl.download.side_effect = _make_file(expected)
 
         with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
             result = download_video("abc123", "https://youtu.be/abc123", output_dir)
@@ -90,11 +101,15 @@ class TestDownloadVideoFailure:
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.side_effect = Exception("geo-blocked")
 
-        with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
-            with pytest.raises(Exception, match="geo-blocked"):
-                download_video("abc123", "https://youtu.be/abc123", output_dir)
+        with (
+            patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl),
+            pytest.raises(Exception, match="geo-blocked"),
+        ):
+            download_video("abc123", "https://youtu.be/abc123", output_dir)
 
-    def test_missing_output_after_download_raises_file_not_found(self, output_dir: Path) -> None:
+    def test_missing_output_after_download_raises_file_not_found(
+        self, output_dir: Path
+    ) -> None:
         """yt-dlp finishes cleanly but the expected .mp4 is absent (format fallback)."""
         mock_ydl = MagicMock()
         mock_ydl.__enter__ = lambda s: s
@@ -103,9 +118,11 @@ class TestDownloadVideoFailure:
         # download() doesn't create the file — simulates a format-fallback extension
         mock_ydl.download.return_value = None
 
-        with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
-            with pytest.raises(FileNotFoundError, match="expected output not found"):
-                download_video("abc123", "https://youtu.be/abc123", output_dir)
+        with (
+            patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl),
+            pytest.raises(FileNotFoundError, match="expected output not found"),
+        ):
+            download_video("abc123", "https://youtu.be/abc123", output_dir)
 
     def test_download_raises_propagates(self, output_dir: Path) -> None:
         mock_ydl = MagicMock()
@@ -114,9 +131,11 @@ class TestDownloadVideoFailure:
         mock_ydl.extract_info.return_value = {"duration": 60}
         mock_ydl.download.side_effect = yt_dlp.utils.DownloadError("private video")
 
-        with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
-            with pytest.raises(Exception, match="private video"):
-                download_video("abc123", "https://youtu.be/abc123", output_dir)
+        with (
+            patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl),
+            pytest.raises(Exception, match="private video"),
+        ):
+            download_video("abc123", "https://youtu.be/abc123", output_dir)
 
 
 class TestMaxDurationGuard:
@@ -128,9 +147,11 @@ class TestMaxDurationGuard:
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"duration": over_limit}
 
-        with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
-            with pytest.raises(ValueError, match="exceeds the 3h download limit"):
-                download_video("abc123", "https://youtu.be/abc123", output_dir)
+        with (
+            patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl),
+            pytest.raises(ValueError, match="exceeds the 3h download limit"),
+        ):
+            download_video("abc123", "https://youtu.be/abc123", output_dir)
 
         mock_ydl.download.assert_not_called()
 
@@ -141,7 +162,7 @@ class TestMaxDurationGuard:
         mock_ydl.__enter__ = lambda s: s
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"duration": _MAX_DURATION_SECONDS}
-        mock_ydl.download.side_effect = lambda _: expected.parent.mkdir(parents=True, exist_ok=True) or expected.touch()
+        mock_ydl.download.side_effect = _make_file(expected)
 
         with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
             result = download_video("abc123", "https://youtu.be/abc123", output_dir)
@@ -155,7 +176,7 @@ class TestMaxDurationGuard:
         mock_ydl.__enter__ = lambda s: s
         mock_ydl.__exit__ = MagicMock(return_value=False)
         mock_ydl.extract_info.return_value = {"duration": 120}
-        mock_ydl.download.side_effect = lambda _: expected.parent.mkdir(parents=True, exist_ok=True) or expected.touch()
+        mock_ydl.download.side_effect = _make_file(expected)
 
         with patch("app.services.downloader.yt_dlp.YoutubeDL", return_value=mock_ydl):
             result = download_video("abc123", "https://youtu.be/abc123", output_dir)

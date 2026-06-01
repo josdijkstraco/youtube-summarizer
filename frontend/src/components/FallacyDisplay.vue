@@ -54,14 +54,14 @@ defineProps<{
 
 .fallacy-display__heading {
   margin: 0 0 1.25rem;
-  font-family: 'Syne', sans-serif;
+  font-family: "Syne", sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
   color: #111827;
 }
 
 .fallacy-display__empty {
-  color: #6B7280;
+  color: #6b7280;
   font-style: italic;
   font-size: 0.9rem;
 }
@@ -69,30 +69,30 @@ defineProps<{
 .fallacy-card {
   padding: 1.25rem 1.5rem;
   margin-bottom: 1rem;
-  background: #FFFFFF;
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-left: 3px solid #E8E5DE;
+  border-left: 3px solid #e8e5de;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .fallacy-card--high {
-  border-left-color: #DC2626;
+  border-left-color: #dc2626;
 }
 
 .fallacy-card--medium {
-  border-left-color: #D97706;
+  border-left-color: #d97706;
 }
 
 .fallacy-card--low {
-  border-left-color: #65A30D;
+  border-left-color: #65a30d;
 }
 
 .fallacy-card__quote {
   margin: 0 0 0.75rem;
   padding: 0.6rem 0.85rem;
-  border-left: 2px solid #E5E7EB;
-  color: #4B5563;
+  border-left: 2px solid #e5e7eb;
+  color: #4b5563;
   font-style: italic;
   font-size: 0.9rem;
   line-height: 1.5;
@@ -118,8 +118,8 @@ defineProps<{
   padding: 0.15rem 0.6rem;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #6B7280;
-  background: #F3F4F6;
+  color: #6b7280;
+  background: #f3f4f6;
   border-radius: 100px;
   letter-spacing: 0.02em;
 }
@@ -133,17 +133,17 @@ defineProps<{
 }
 
 .fallacy-card__severity--high {
-  color: #DC2626;
+  color: #dc2626;
   background: rgba(220, 38, 38, 0.1);
 }
 
 .fallacy-card__severity--medium {
-  color: #D97706;
+  color: #d97706;
   background: rgba(217, 119, 6, 0.1);
 }
 
 .fallacy-card__severity--low {
-  color: #65A30D;
+  color: #65a30d;
   background: rgba(101, 163, 13, 0.1);
 }
 
@@ -156,7 +156,7 @@ defineProps<{
 
 .fallacy-card__example {
   padding: 0.75rem 1rem;
-  background: #F9FAFB;
+  background: #f9fafb;
   border-radius: 8px;
   border: 1px solid rgba(0, 0, 0, 0.04);
 }
@@ -165,7 +165,7 @@ defineProps<{
   margin: 0 0 0.35rem;
   font-size: 0.7rem;
   font-weight: 600;
-  color: #9CA3AF;
+  color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -179,7 +179,7 @@ defineProps<{
 
 .fallacy-card__example-why {
   margin: 0;
-  color: #6B7280;
+  color: #6b7280;
   font-size: 0.825rem;
   line-height: 1.5;
 }

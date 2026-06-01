@@ -132,7 +132,7 @@ class TestAnalyzeFallacies:
         assert result is None
 
     @patch("app.services.fallacy_analyzer.OpenAI")
-    def test_uses_30s_timeout(self, mock_openai_class: MagicMock) -> None:
+    def test_uses_120s_timeout(self, mock_openai_class: MagicMock) -> None:
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
         mock_response = MagicMock()
@@ -143,4 +143,4 @@ class TestAnalyzeFallacies:
         analyze_fallacies("Some text.")
 
         call_kwargs = mock_client.chat.completions.create.call_args
-        assert call_kwargs.kwargs.get("timeout") == 30
+        assert call_kwargs.kwargs.get("timeout") == 120

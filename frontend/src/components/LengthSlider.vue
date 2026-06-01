@@ -16,8 +16,8 @@ function onInput(event: Event) {
 
 <template>
   <div class="length-slider">
-    <div class="length-slider__header">
-      <span class="length-slider__label">Summary length</span>
+    <div class="length-slider__label">
+      <span class="length-slider__title">Summary length:</span>
       <span class="length-slider__value">{{ modelValue }}%</span>
     </div>
     <input
@@ -46,16 +46,16 @@ function onInput(event: Event) {
   max-width: 360px;
 }
 
-.length-slider__header {
+.length-slider__label {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
 }
 
-.length-slider__label {
+.length-slider__title {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #6B7280;
+  color: #6b7280;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -72,7 +72,7 @@ function onInput(event: Event) {
   appearance: none;
   width: 100%;
   height: 4px;
-  background: #E5E7EB;
+  background: #e5e7eb;
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -83,9 +83,9 @@ function onInput(event: Event) {
   appearance: none;
   width: 18px;
   height: 18px;
-  background: #2563EB;
+  background: #2563eb;
   border-radius: 50%;
-  border: 3px solid #F9FAFB;
+  border: 3px solid #f9fafb;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: transform 0.15s ease;
@@ -98,9 +98,9 @@ function onInput(event: Event) {
 .length-slider__input::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  background: #2563EB;
+  background: #2563eb;
   border-radius: 50%;
-  border: 3px solid #F9FAFB;
+  border: 3px solid #f9fafb;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
 }
@@ -114,7 +114,7 @@ function onInput(event: Event) {
   display: flex;
   justify-content: space-between;
   font-size: 0.7rem;
-  color: #9CA3AF;
+  color: #9ca3af;
   letter-spacing: 0.02em;
 }
 </style>

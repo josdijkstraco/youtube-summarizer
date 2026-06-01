@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 import asyncpg  # type: ignore[import-untyped]
 from fastapi import BackgroundTasks, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from openai import APIError
 from youtube_transcript_api._errors import (
     IpBlocked,
@@ -35,6 +35,7 @@ from app.db import (
     get_download_status,
     get_fallacy_analysis,
     get_full_record,
+    list_downloaded,
     list_recent,
     remove_highlight,
     restore,
@@ -48,6 +49,7 @@ from app.db import (
 from app.models import (
     AskRequest,
     AskResponse,
+    DownloadedListResponse,
     DownloadStatusResponse,
     ErrorResponse,
     FallacyAnalysisRequest,
@@ -131,7 +133,7 @@ async def get_history_item(
 async def delete_history_item(
     video_id: str,
     conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
-) -> None:
+) -> Response:
     deleted = await soft_delete(conn, video_id)
     if not deleted:
         return JSONResponse(
@@ -141,6 +143,7 @@ async def delete_history_item(
                 message=f"No record found for video_id: {video_id}",
             ).model_dump(),
         )
+    return Response(status_code=204)
 
 
 @app.post("/api/history/{video_id}/restore", response_model=None)
@@ -319,9 +322,9 @@ async def summarize_video(
     metadata: VideoMetadata | None = None
     try:
         metadata = get_video_metadata(video_id)
-        duration = calculate_duration(segments)
-        if metadata and duration is not None:
-            metadata.duration_seconds = duration
+        video_duration = calculate_duration(segments)
+        if metadata and video_duration is not None:
+            metadata.duration_seconds = video_duration
     except Exception:
         logger.warning("Failed to retrieve metadata for %s", video_id)
 
@@ -429,7 +432,10 @@ async def analyze_video_fallacies(
             status_code=502,
             content=ErrorResponse(
                 error="analysis_failed",
-                message="OpenAI returned no fallacy analysis. The API may be down or rate-limiting.",
+                message=(
+                    "OpenAI returned no fallacy analysis. "
+                    "The API may be down or rate-limiting."
+                ),
             ).model_dump(),
         )
 
@@ -443,7 +449,10 @@ async def analyze_video_fallacies(
 
 
 @app.post("/api/ask", response_model=AskResponse)
-async def ask(request: AskRequest, conn: asyncpg.Connection = Depends(get_db)) -> AskResponse:  # noqa: B008
+async def ask(
+    request: AskRequest,
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> AskResponse:
     answer = await ask_question(
         transcript=request.transcript,
         question=request.question,
@@ -458,6 +467,23 @@ async def ask(request: AskRequest, conn: asyncpg.Connection = Depends(get_db)) -
         except Exception:
             logger.warning("Failed to save qa_history for %s", request.video_id)
     return AskResponse(answer=answer)
+
+
+@app.get("/api/videos/downloaded", response_model=None)
+async def list_downloaded_videos(
+    conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
+) -> DownloadedListResponse | JSONResponse:
+    try:
+        return DownloadedListResponse(items=await list_downloaded(conn))
+    except Exception:
+        logger.exception("Failed to list downloaded videos")
+        return JSONResponse(
+            status_code=500,
+            content=ErrorResponse(
+                error="internal_error",
+                message="Failed to list downloaded videos.",
+            ).model_dump(),
+        )
 
 
 async def _run_download_task(pool: asyncpg.Pool, video_id: str, url: str) -> None:
@@ -541,7 +567,7 @@ async def get_download_status_endpoint(
 async def delete_download_endpoint(
     video_id: str,
     conn: asyncpg.Connection = Depends(get_db),  # noqa: B008
-) -> None:
+) -> Response:
     status_row = await get_download_status(conn, video_id)
     if status_row is None:
         return JSONResponse(
@@ -552,6 +578,7 @@ async def delete_download_endpoint(
             ).model_dump(),
         )
     await delete_download(conn, video_id)
+    return Response(status_code=204)
 
 
 @app.get("/api/videos/{video_id}/stream", response_model=None)

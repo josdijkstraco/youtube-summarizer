@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import type { VideoMetadata, SummaryStats, Highlight, QaMessage } from "@/types";
-import { addHighlight, removeHighlight, askQuestion, saveNotes } from "@/services/api";
+import type {
+  VideoMetadata,
+  SummaryStats,
+  Highlight,
+  QaMessage,
+} from "@/types";
+import {
+  addHighlight,
+  removeHighlight,
+  askQuestion,
+  saveNotes,
+} from "@/services/api";
 import VideoPlayer from "@/components/VideoPlayer.vue";
 
 const props = defineProps<{
@@ -13,23 +23,29 @@ const props = defineProps<{
   initialHighlights?: Highlight[];
   initialQaHistory?: QaMessage[];
   initialNotes?: string | null;
+  initialTab?: "summary" | "transcript" | "qa" | "notes" | "video";
 }>();
 
-const activeTab = ref<"summary" | "transcript" | "qa" | "notes" | "video">("summary");
+const activeTab = ref<"summary" | "transcript" | "qa" | "notes" | "video">(
+  props.initialTab ?? "summary",
+);
 
 // Notes state
 const notes = ref<string>(props.initialNotes ?? "");
 const notesSaveStatus = ref<"idle" | "saving" | "saved" | "error">("idle");
 let notesDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-watch(() => props.initialNotes, (val) => {
-  notes.value = val ?? "";
-  notesSaveStatus.value = "idle";
-  if (notesDebounceTimer) {
-    clearTimeout(notesDebounceTimer);
-    notesDebounceTimer = null;
-  }
-});
+watch(
+  () => props.initialNotes,
+  (val) => {
+    notes.value = val ?? "";
+    notesSaveStatus.value = "idle";
+    if (notesDebounceTimer) {
+      clearTimeout(notesDebounceTimer);
+      notesDebounceTimer = null;
+    }
+  },
+);
 
 function handleNotesInput() {
   if (!props.videoId) return;
@@ -75,10 +91,19 @@ async function sendQuestion() {
   qaError.value = null;
 
   try {
-    const { answer } = await askQuestion(props.transcript, question, priorHistory, props.videoId ?? undefined);
-    qaHistory.value = [...qaHistory.value, { role: "assistant", content: answer }];
+    const { answer } = await askQuestion(
+      props.transcript,
+      question,
+      priorHistory,
+      props.videoId ?? undefined,
+    );
+    qaHistory.value = [
+      ...qaHistory.value,
+      { role: "assistant", content: answer },
+    ];
   } catch (err) {
-    qaError.value = err instanceof Error ? err.message : "Failed to get answer.";
+    qaError.value =
+      err instanceof Error ? err.message : "Failed to get answer.";
   } finally {
     qaLoading.value = false;
   }
@@ -110,15 +135,12 @@ watch(
 );
 
 // Scroll to bottom when messages change or loading indicator appears
-watch(
-  [qaHistory, qaLoading],
-  async () => {
-    await nextTick();
-    if (qaMessagesEl.value) {
-      qaMessagesEl.value.scrollTop = qaMessagesEl.value.scrollHeight;
-    }
-  },
-);
+watch([qaHistory, qaLoading], async () => {
+  await nextTick();
+  if (qaMessagesEl.value) {
+    qaMessagesEl.value.scrollTop = qaMessagesEl.value.scrollHeight;
+  }
+});
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -420,19 +442,27 @@ onUnmounted(() => {
     <div v-if="stats" class="summary-display__stats">
       <span class="summary-display__stat">
         <span class="summary-display__stat-label">Chars in</span>
-        <span class="summary-display__stat-value">{{ stats.chars_in.toLocaleString() }}</span>
+        <span class="summary-display__stat-value">{{
+          stats.chars_in.toLocaleString()
+        }}</span>
       </span>
       <span class="summary-display__stat">
         <span class="summary-display__stat-label">Chars out</span>
-        <span class="summary-display__stat-value">{{ stats.chars_out.toLocaleString() }}</span>
+        <span class="summary-display__stat-value">{{
+          stats.chars_out.toLocaleString()
+        }}</span>
       </span>
       <span class="summary-display__stat">
         <span class="summary-display__stat-label">Total tokens</span>
-        <span class="summary-display__stat-value">{{ stats.total_tokens.toLocaleString() }}</span>
+        <span class="summary-display__stat-value">{{
+          stats.total_tokens.toLocaleString()
+        }}</span>
       </span>
       <span class="summary-display__stat">
         <span class="summary-display__stat-label">Time</span>
-        <span class="summary-display__stat-value">{{ stats.generation_seconds }}s</span>
+        <span class="summary-display__stat-value"
+          >{{ stats.generation_seconds }}s</span
+        >
       </span>
     </div>
     <div class="summary-display__tabs">
@@ -455,10 +485,7 @@ onUnmounted(() => {
         Transcript
       </button>
       <button
-        :class="[
-          'summary-display__tab',
-          { 'is-active': activeTab === 'qa' },
-        ]"
+        :class="['summary-display__tab', { 'is-active': activeTab === 'qa' }]"
         @click="activeTab = 'qa'"
       >
         Q&amp;A
@@ -483,7 +510,9 @@ onUnmounted(() => {
       </button>
     </div>
     <div
-      v-if="activeTab !== 'qa' && activeTab !== 'notes' && activeTab !== 'video'"
+      v-if="
+        activeTab !== 'qa' && activeTab !== 'notes' && activeTab !== 'video'
+      "
       ref="contentEl"
       class="summary-display__content"
       @mouseup="onSummaryMouseUp"
@@ -553,7 +582,9 @@ onUnmounted(() => {
     <!-- Video panel -->
     <div v-if="activeTab === 'video'" class="summary-display__video">
       <VideoPlayer v-if="videoId" :video-id="videoId" />
-      <p v-else class="summary-display__video-unavailable">No video ID available.</p>
+      <p v-else class="summary-display__video-unavailable">
+        No video ID available.
+      </p>
     </div>
 
     <!-- Highlight popover — teleported to body to avoid clipping -->
@@ -571,10 +602,24 @@ onUnmounted(() => {
             class="highlight-popover__btn highlight-popover__btn--add"
             @click.stop="handleSaveHighlight"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" opacity="0.15"/>
-              <rect x="3" y="11" width="18" height="2"/>
-              <rect x="11" y="3" width="2" height="18"/>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="3"
+                width="18"
+                height="18"
+                rx="2"
+                ry="2"
+                opacity="0.15"
+              />
+              <rect x="3" y="11" width="18" height="2" />
+              <rect x="11" y="3" width="2" height="18" />
             </svg>
             Save highlight
           </button>
@@ -584,7 +629,17 @@ onUnmounted(() => {
             class="highlight-popover__btn highlight-popover__btn--remove"
             @click.stop="handleRemoveHighlight"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <polyline points="3 6 5 6 21 6" />
               <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
               <path d="M10 11v6M14 11v6" />
@@ -602,11 +657,13 @@ onUnmounted(() => {
 .summary-display {
   width: 100%;
   max-width: 720px;
-  background: #FFFFFF;
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 6px 24px rgba(0, 0, 0, 0.02);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.03),
+    0 6px 24px rgba(0, 0, 0, 0.02);
 }
 
 .summary-display__meta {
@@ -623,7 +680,9 @@ onUnmounted(() => {
   object-fit: cover;
   border-radius: 8px;
   flex-shrink: 0;
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .summary-display__thumb-link {
@@ -665,12 +724,12 @@ onUnmounted(() => {
 
 .summary-display__channel {
   font-size: 0.8rem;
-  color: #6B7280;
+  color: #6b7280;
 }
 
 .summary-display__duration {
   font-size: 0.8rem;
-  color: #9CA3AF;
+  color: #9ca3af;
   font-variant-numeric: tabular-nums;
 }
 
@@ -693,8 +752,8 @@ onUnmounted(() => {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #9CA3AF;
-  font-family: 'Manrope', sans-serif;
+  color: #9ca3af;
+  font-family: "Manrope", sans-serif;
 }
 
 .summary-display__stat-value {
@@ -702,7 +761,7 @@ onUnmounted(() => {
   font-weight: 600;
   color: #111827;
   font-variant-numeric: tabular-nums;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
 }
 
 .summary-display__tabs {
@@ -721,10 +780,12 @@ onUnmounted(() => {
   margin-bottom: -1px;
   font-size: 0.85rem;
   font-weight: 500;
-  font-family: 'Manrope', sans-serif;
-  color: #9CA3AF;
+  font-family: "Manrope", sans-serif;
+  color: #9ca3af;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
 }
 
 .summary-display__tab:hover {
@@ -733,7 +794,7 @@ onUnmounted(() => {
 
 .summary-display__tab.is-active {
   color: #111827;
-  border-bottom-color: #2563EB;
+  border-bottom-color: #2563eb;
 }
 
 .summary-display__content {
@@ -748,7 +809,7 @@ onUnmounted(() => {
   white-space: pre-wrap;
   font-size: 0.875rem;
   line-height: 1.75;
-  color: #4B5563;
+  color: #4b5563;
 }
 
 /* Notes panel */
@@ -766,7 +827,7 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 0.75rem;
   font-size: 0.875rem;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   line-height: 1.6;
   color: #111827;
   outline: none;
@@ -774,19 +835,19 @@ onUnmounted(() => {
 }
 
 .notes-textarea:focus {
-  border-color: #2563EB;
+  border-color: #2563eb;
 }
 
 .notes-textarea:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: #F9FAFB;
+  background: #f9fafb;
 }
 
 .notes-status {
   margin-top: 0.4rem;
   font-size: 0.75rem;
-  color: #9CA3AF;
+  color: #9ca3af;
   text-align: right;
   min-height: 1.1em;
 }
@@ -822,7 +883,7 @@ onUnmounted(() => {
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   line-height: 1.5;
   color: #111827;
   outline: none;
@@ -830,7 +891,7 @@ onUnmounted(() => {
 }
 
 .qa-textarea:focus {
-  border-color: #2563EB;
+  border-color: #2563eb;
 }
 
 .qa-textarea:disabled {
@@ -839,20 +900,22 @@ onUnmounted(() => {
 
 .qa-send-btn {
   padding: 0.5rem 1rem;
-  background: #2563EB;
+  background: #2563eb;
   color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
   white-space: nowrap;
 }
 
 .qa-send-btn:hover:not(:disabled) {
-  background: #1D4ED8;
+  background: #1d4ed8;
 }
 
 .qa-send-btn:disabled {
@@ -863,7 +926,7 @@ onUnmounted(() => {
 .qa-error {
   margin: 0;
   font-size: 0.8rem;
-  color: #B91C1C;
+  color: #b91c1c;
 }
 
 /* Chat messages */
@@ -889,13 +952,13 @@ onUnmounted(() => {
 }
 
 .qa-message--user .qa-message__bubble {
-  background: #2563EB;
+  background: #2563eb;
   color: #fff;
   border-bottom-right-radius: 4px;
 }
 
 .qa-message--assistant .qa-message__bubble {
-  background: #F3F4F6;
+  background: #f3f4f6;
   color: #111827;
   border-bottom-left-radius: 4px;
 }
@@ -913,16 +976,26 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #9CA3AF;
+  background: #9ca3af;
   animation: qa-dot-bounce 1.2s infinite;
 }
 
-.qa-loading-dot:nth-child(2) { animation-delay: 0.2s; }
-.qa-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+.qa-loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.qa-loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 
 @keyframes qa-dot-bounce {
-  0%, 80%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-5px); }
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
 }
 
 /* Video panel */
@@ -933,7 +1006,7 @@ onUnmounted(() => {
 .summary-display__video-unavailable {
   margin: 0;
   font-size: 0.875rem;
-  color: #9CA3AF;
+  color: #9ca3af;
 }
 </style>
 
@@ -949,7 +1022,7 @@ onUnmounted(() => {
 }
 
 .summary-highlight {
-  background: #FEF08A;
+  background: #fef08a;
   border-radius: 2px;
   padding: 0 1px;
   cursor: pointer;
@@ -957,7 +1030,7 @@ onUnmounted(() => {
 }
 
 .summary-highlight:hover {
-  background: #FDE047;
+  background: #fde047;
 }
 
 .highlight-popover {
@@ -965,10 +1038,12 @@ onUnmounted(() => {
   transform: translate(-50%, -100%);
   margin-top: -6px;
   z-index: 9999;
-  background: #FFFFFF;
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.06);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -984,27 +1059,27 @@ onUnmounted(() => {
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 500;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
 }
 
 .highlight-popover__btn--add {
-  background: #FEF08A;
-  color: #713F12;
+  background: #fef08a;
+  color: #713f12;
 }
 
 .highlight-popover__btn--add:hover {
-  background: #FDE047;
+  background: #fde047;
 }
 
 .highlight-popover__btn--remove {
-  background: #FEE8E8;
-  color: #8B2020;
+  background: #fee8e8;
+  color: #8b2020;
 }
 
 .highlight-popover__btn--remove:hover {
-  background: #FFC9C9;
+  background: #ffc9c9;
 }
 </style>

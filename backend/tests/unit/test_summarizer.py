@@ -26,7 +26,7 @@ class TestGenerateSummary:
 
         result = generate_summary("This is a transcript about Python programming.")
 
-        assert result == "This is a summary of the video."
+        assert result.content == "This is a summary of the video."
 
     @patch("app.services.summarizer.OpenAI")
     def test_uses_gpt4o_mini_model(
@@ -84,7 +84,7 @@ class TestGenerateSummary:
         generate_summary("Some text.")
 
         call_kwargs = mock_client.chat.completions.create.call_args
-        assert call_kwargs.kwargs.get("timeout") == 30
+        assert call_kwargs.kwargs.get("timeout") == 120
 
     @patch("app.services.summarizer.OpenAI")
     def test_chunked_summarization_for_long_transcript(
@@ -118,7 +118,7 @@ class TestGenerateSummary:
 
         result = generate_summary(long_transcript)
 
-        assert result == "Combined final summary."
+        assert result.content == "Combined final summary."
         # Should have been called multiple times (chunks + final)
         assert mock_client.chat.completions.create.call_count >= 3
 

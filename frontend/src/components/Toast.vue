@@ -45,7 +45,12 @@ onUnmounted(() => {
 
 <template>
   <Transition name="toast" @after-leave="onAfterLeave">
-    <div v-if="visible" :class="['toast', `toast--${type}`]" role="status" aria-live="polite">
+    <div
+      v-if="visible"
+      :class="['toast', `toast--${type}`]"
+      role="status"
+      aria-live="polite"
+    >
       {{ message }}
     </div>
   </Transition>
@@ -61,7 +66,7 @@ onUnmounted(() => {
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   color: #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
@@ -70,20 +75,22 @@ onUnmounted(() => {
 }
 
 .toast--success {
-  background: #16A34A;
+  background: #16a34a;
 }
 
 .toast--error {
-  background: #DC2626;
+  background: #dc2626;
 }
 
 .toast--info {
-  background: #2563EB;
+  background: #2563eb;
 }
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .toast-enter-from {

@@ -2,7 +2,7 @@ import os
 from http.cookiejar import MozillaCookieJar
 from typing import Any
 
-import requests
+import requests  # type: ignore[import-untyped]
 from youtube_transcript_api import YouTubeTranscriptApi
 
 COOKIES_PATH = "/app/cookies.txt"
@@ -15,7 +15,7 @@ def _build_session() -> requests.Session | None:
     jar = MozillaCookieJar(COOKIES_PATH)
     jar.load(ignore_discard=True, ignore_expires=True)
     session = requests.Session()
-    session.cookies.update(jar)  # type: ignore[arg-type]
+    session.cookies.update(jar)
     return session
 
 

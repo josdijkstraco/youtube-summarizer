@@ -63,7 +63,16 @@ function handleDelete(event: Event, videoId: string) {
       aria-label="Remove from history"
       @click="handleDelete($event, item.video_id)"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
         <line x1="18" y1="6" x2="6" y2="18" />
         <line x1="6" y1="6" x2="18" y2="18" />
       </svg>
@@ -83,7 +92,7 @@ function handleDelete(event: Event, videoId: string) {
 }
 
 .history-card:hover {
-  background: #F9FAFB;
+  background: #f9fafb;
 }
 
 .history-card:last-child {
@@ -100,7 +109,7 @@ function handleDelete(event: Event, videoId: string) {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10B981;
+  background: #10b981;
   margin-left: 0.25rem;
   vertical-align: middle;
   pointer-events: none;
@@ -149,7 +158,7 @@ function handleDelete(event: Event, videoId: string) {
 .history-card__summary {
   margin: 0;
   font-size: 0.775rem;
-  color: #6B7280;
+  color: #6b7280;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -159,7 +168,7 @@ function handleDelete(event: Event, videoId: string) {
 
 .history-card__date {
   font-size: 0.675rem;
-  color: #9CA3AF;
+  color: #9ca3af;
   margin-top: 0.2rem;
   display: inline-block;
 }
@@ -177,10 +186,13 @@ function handleDelete(event: Event, videoId: string) {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 4px;
-  color: #9CA3AF;
+  color: #9ca3af;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 
 .history-card:hover .history-card__delete {
@@ -188,8 +200,8 @@ function handleDelete(event: Event, videoId: string) {
 }
 
 .history-card__delete:hover {
-  color: #DC2626;
-  background: #FEF2F2;
+  color: #dc2626;
+  background: #fef2f2;
   border-color: rgba(220, 38, 38, 0.2);
 }
 

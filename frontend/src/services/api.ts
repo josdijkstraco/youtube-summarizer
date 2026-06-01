@@ -9,6 +9,7 @@ import type {
   QaMessage,
   AskResponse,
   DownloadStatus,
+  DownloadedItem,
 } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -98,6 +99,24 @@ export async function fetchHistory(limit = 50): Promise<HistoryResponse> {
     throw new ApiError(errorResponse);
   }
 
+  return response.json();
+}
+
+export async function fetchDownloaded(): Promise<{ items: DownloadedItem[] }> {
+  const response = await fetch(`${API_BASE}/api/videos/downloaded`);
+  if (!response.ok) {
+    let errorResponse: ErrorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch {
+      errorResponse = {
+        error: "internal_error",
+        message: "Failed to load library.",
+        details: null,
+      };
+    }
+    throw new ApiError(errorResponse);
+  }
   return response.json();
 }
 
@@ -249,10 +268,9 @@ export async function saveNotes(
 export async function triggerDownload(
   videoId: string,
 ): Promise<DownloadStatus> {
-  const response = await fetch(
-    `${API_BASE}/api/videos/${videoId}/download`,
-    { method: "POST" },
-  );
+  const response = await fetch(`${API_BASE}/api/videos/${videoId}/download`, {
+    method: "POST",
+  });
 
   if (!response.ok) {
     let errorResponse: ErrorResponse;
@@ -274,9 +292,7 @@ export async function triggerDownload(
 export async function getDownloadStatus(
   videoId: string,
 ): Promise<DownloadStatus> {
-  const response = await fetch(
-    `${API_BASE}/api/videos/${videoId}/download`,
-  );
+  const response = await fetch(`${API_BASE}/api/videos/${videoId}/download`);
 
   if (!response.ok) {
     let errorResponse: ErrorResponse;
@@ -300,10 +316,9 @@ export function getStreamUrl(videoId: string): string {
 }
 
 export async function deleteDownload(videoId: string): Promise<void> {
-  const response = await fetch(
-    `${API_BASE}/api/videos/${videoId}/download`,
-    { method: "DELETE" },
-  );
+  const response = await fetch(`${API_BASE}/api/videos/${videoId}/download`, {
+    method: "DELETE",
+  });
 
   if (!response.ok && response.status !== 204) {
     let errorResponse: ErrorResponse;

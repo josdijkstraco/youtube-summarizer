@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
 import type { DownloadStatus } from "@/types";
-import { triggerDownload, getDownloadStatus, getStreamUrl, deleteDownload } from "@/services/api";
+import {
+  triggerDownload,
+  getDownloadStatus,
+  getStreamUrl,
+  deleteDownload,
+} from "@/services/api";
 import Toast from "@/components/Toast.vue";
 
 const props = defineProps<{
@@ -74,7 +79,8 @@ async function handleDownload() {
     if (ds.status === "pending") startPolling();
   } catch (err) {
     status.value = "error";
-    errorMessage.value = err instanceof Error ? err.message : "Could not start download.";
+    errorMessage.value =
+      err instanceof Error ? err.message : "Could not start download.";
   } finally {
     isTriggering.value = false;
   }
@@ -100,7 +106,8 @@ async function handleDelete() {
   } catch (err) {
     isDeleting.value = false;
     showDeleteModal.value = false;
-    toastMessage.value = err instanceof Error ? err.message : "Failed to delete video.";
+    toastMessage.value =
+      err instanceof Error ? err.message : "Failed to delete video.";
     toastType.value = "error";
     showToast.value = true;
   }
@@ -165,7 +172,23 @@ onUnmounted(() => {
           class="video-player__btn video-player__btn--destructive"
           @click="showDeleteModal = true"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"
+            />
+          </svg>
           Delete video
         </button>
       </div>
@@ -201,10 +224,16 @@ onUnmounted(() => {
       class="vp-modal-overlay"
       @click.self="!isDeleting && (showDeleteModal = false)"
     >
-      <div class="vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-modal-title">
+      <div
+        class="vp-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vp-modal-title"
+      >
         <h3 id="vp-modal-title" class="vp-modal__title">Delete video</h3>
         <p class="vp-modal__message">
-          Are you sure you want to delete this downloaded video? You can re-download it later.
+          Are you sure you want to delete this downloaded video? You can
+          re-download it later.
         </p>
         <div class="vp-modal__actions">
           <button
@@ -219,7 +248,11 @@ onUnmounted(() => {
             :disabled="isDeleting"
             @click="handleDelete"
           >
-            <span v-if="isDeleting" class="vp-modal__btn-spinner" aria-hidden="true" />
+            <span
+              v-if="isDeleting"
+              class="vp-modal__btn-spinner"
+              aria-hidden="true"
+            />
             <span>{{ isDeleting ? "Deleting…" : "Delete" }}</span>
           </button>
         </div>
@@ -250,19 +283,19 @@ onUnmounted(() => {
 .video-player__message {
   margin: 0;
   font-size: 0.95rem;
-  color: #6B7280;
+  color: #6b7280;
 }
 
 .video-player__disclaimer {
   margin: 0;
   font-size: 0.75rem;
-  color: #9CA3AF;
+  color: #9ca3af;
 }
 
 .video-player__error-text {
   margin: 0;
   font-size: 0.875rem;
-  color: #B91C1C;
+  color: #b91c1c;
   max-width: 420px;
 }
 
@@ -272,22 +305,24 @@ onUnmounted(() => {
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
 }
 
 .video-player__btn--primary {
-  background: #2563EB;
+  background: #2563eb;
   color: #fff;
 }
 
 .video-player__btn--primary:hover:not(:disabled) {
-  background: #1D4ED8;
+  background: #1d4ed8;
 }
 
 .video-player__btn--destructive {
-  background: #DC2626;
+  background: #dc2626;
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -295,7 +330,7 @@ onUnmounted(() => {
 }
 
 .video-player__btn--destructive:hover:not(:disabled) {
-  background: #B91C1C;
+  background: #b91c1c;
 }
 
 .video-player__btn:disabled {
@@ -314,13 +349,15 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: 3px solid rgba(37, 99, 235, 0.2);
-  border-top-color: #2563EB;
+  border-top-color: #2563eb;
   border-radius: 50%;
   animation: vp-spin 0.8s linear infinite;
 }
 
 @keyframes vp-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Inline button spinner */
@@ -372,13 +409,13 @@ onUnmounted(() => {
   font-size: 1.1rem;
   font-weight: 700;
   color: #111827;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
 }
 
 .vp-modal__message {
   margin: 0 0 1.25rem;
   font-size: 0.875rem;
-  color: #6B7280;
+  color: #6b7280;
   line-height: 1.5;
 }
 
@@ -389,11 +426,11 @@ onUnmounted(() => {
 }
 
 .vp-modal__btn--cancel {
-  background: #F3F4F6;
+  background: #f3f4f6;
   color: #374151;
 }
 
 .vp-modal__btn--cancel:hover:not(:disabled) {
-  background: #E5E7EB;
+  background: #e5e7eb;
 }
 </style>

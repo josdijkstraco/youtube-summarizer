@@ -31,14 +31,14 @@ const emit = defineEmits<{
   width: 100%;
   max-width: 640px;
   padding: 1.25rem 1.5rem;
-  background: #FEF2F2;
+  background: #fef2f2;
   border: 1px solid rgba(220, 38, 38, 0.15);
   border-radius: 12px;
 }
 
 .error-message__text {
   margin: 0;
-  color: #DC2626;
+  color: #dc2626;
   font-weight: 500;
   font-size: 0.9rem;
   text-align: center;
@@ -46,7 +46,7 @@ const emit = defineEmits<{
 
 .error-message__details {
   margin: 0;
-  color: #6B7280;
+  color: #6b7280;
   font-size: 0.825rem;
   text-align: center;
 }
@@ -55,17 +55,17 @@ const emit = defineEmits<{
   padding: 0.45rem 1.25rem;
   font-size: 0.825rem;
   font-weight: 500;
-  font-family: 'Manrope', sans-serif;
-  color: #DC2626;
+  font-family: "Manrope", sans-serif;
+  color: #dc2626;
   background: none;
-  border: 1px solid #DC2626;
+  border: 1px solid #dc2626;
   border-radius: 100px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .error-message__retry:hover {
-  background: #DC2626;
-  color: #FFFFFF;
+  background: #dc2626;
+  color: #ffffff;
 }
 </style>

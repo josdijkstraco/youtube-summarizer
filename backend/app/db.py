@@ -2,11 +2,19 @@ import json
 import logging
 import os
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import asyncpg  # type: ignore[import-untyped]
 from fastapi import Request
 
-from app.models import FallacyAnalysisResult, Highlight, HistoryItem, QaMessage, VideoRecord
+from app.models import (
+    DownloadedItem,
+    FallacyAnalysisResult,
+    Highlight,
+    HistoryItem,
+    QaMessage,
+    VideoRecord,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +189,8 @@ async def save_record(
 ) -> VideoRecord:
     # Step 1: try insert (silently skip if conflict)
     await conn.execute(
-        "INSERT INTO youtube_summarizer.summaries (video_id, title, thumbnail_url, summary, transcript) "
+        "INSERT INTO youtube_summarizer.summaries "
+        "(video_id, title, thumbnail_url, summary, transcript) "
         "VALUES ($1, $2, $3, $4, $5) ON CONFLICT (video_id) DO NOTHING",
         video_id,
         title,
@@ -190,15 +199,20 @@ async def save_record(
         transcript,
     )
     # Step 2: always fetch (inserted or existing)
-    row = await conn.fetchrow("SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id)
-    return _parse_video_record(row)
+    row = await conn.fetchrow(
+        "SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1", video_id
+    )
+    record = _parse_video_record(row)
+    assert record is not None  # row always exists after insert-or-fetch
+    return record
 
 
 async def get_by_video_id(
     conn: asyncpg.Connection, video_id: str
 ) -> VideoRecord | None:
     row = await conn.fetchrow(
-        "SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        "SELECT * FROM youtube_summarizer.summaries "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
     if row is None:
@@ -219,11 +233,23 @@ async def list_recent(conn: asyncpg.Connection, limit: int) -> list[HistoryItem]
     return [HistoryItem(**dict(row)) for row in rows]
 
 
+async def list_downloaded(conn: asyncpg.Connection) -> list[DownloadedItem]:
+    """Return all ready, non-deleted downloads, newest download first."""
+    rows = await conn.fetch(
+        "SELECT video_id, title, thumbnail_url, downloaded_at "
+        "FROM youtube_summarizer.summaries "
+        "WHERE deleted_at IS NULL AND download_status = 'ready' "
+        "ORDER BY downloaded_at DESC"
+    )
+    return [DownloadedItem(**dict(row)) for row in rows]
+
+
 async def get_full_record(
     conn: asyncpg.Connection, video_id: str
 ) -> VideoRecord | None:
     row = await conn.fetchrow(
-        "SELECT * FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        "SELECT * FROM youtube_summarizer.summaries "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
     if row is None:
@@ -261,7 +287,7 @@ def _parse_video_record(row: asyncpg.Record | None) -> VideoRecord | None:
 async def save_fallacy_analysis(
     conn: asyncpg.Connection,
     video_id: str,
-    fallacy_analysis: dict,
+    fallacy_analysis: dict[str, Any],
 ) -> bool:
     """Save fallacy analysis for a video.
 
@@ -276,11 +302,11 @@ async def save_fallacy_analysis(
         video_id,
         json.dumps(fallacy_analysis),
     )
-    return result == "UPDATE 1"
+    return bool(result == "UPDATE 1")
 
 
 async def save_qa_history(
-    conn: asyncpg.Connection, video_id: str, history: list[dict]
+    conn: asyncpg.Connection, video_id: str, history: list[dict[str, Any]]
 ) -> None:
     await conn.execute(
         """
@@ -294,14 +320,16 @@ async def save_qa_history(
     )
 
 
-async def save_notes(conn: asyncpg.Connection, video_id: str, notes: str | None) -> bool:
+async def save_notes(
+    conn: asyncpg.Connection, video_id: str, notes: str | None
+) -> bool:
     result = await conn.execute(
         "UPDATE youtube_summarizer.summaries SET notes = $2 "
         "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
         notes,
     )
-    return result == "UPDATE 1"
+    return bool(result == "UPDATE 1")
 
 
 async def save_download_status(
@@ -362,7 +390,8 @@ async def delete_download(conn: asyncpg.Connection, video_id: str) -> bool:
     was already missing. Always clears download columns regardless of disk state.
     """
     row = await conn.fetchrow(
-        "SELECT download_path FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        "SELECT download_path FROM youtube_summarizer.summaries "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
     download_path: str | None = row["download_path"] if row else None
@@ -399,7 +428,8 @@ async def get_fallacy_analysis(
 async def soft_delete(conn: asyncpg.Connection, video_id: str) -> bool:
     """Soft-delete a video record. Returns True if a record was deleted."""
     row = await conn.fetchrow(
-        "SELECT download_path FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        "SELECT download_path FROM youtube_summarizer.summaries "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
     if row is None:
@@ -416,7 +446,7 @@ async def soft_delete(conn: asyncpg.Connection, video_id: str) -> bool:
         "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
-    return result == "UPDATE 1"
+    return bool(result == "UPDATE 1")
 
 
 async def restore(conn: asyncpg.Connection, video_id: str) -> HistoryItem | None:
@@ -456,7 +486,8 @@ async def add_highlight(
 ) -> list[Highlight] | None:
     """Add a highlight to a video record. Returns updated list or None if not found."""
     row = await conn.fetchrow(
-        "SELECT highlights FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        "SELECT highlights FROM youtube_summarizer.summaries "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
     if row is None:
@@ -482,7 +513,8 @@ async def remove_highlight(
 ) -> list[Highlight] | None:
     """Remove a highlight by index. Returns updated list or None if not found."""
     row = await conn.fetchrow(
-        "SELECT highlights FROM youtube_summarizer.summaries WHERE video_id = $1 AND deleted_at IS NULL",
+        "SELECT highlights FROM youtube_summarizer.summaries "
+        "WHERE video_id = $1 AND deleted_at IS NULL",
         video_id,
     )
     if row is None:

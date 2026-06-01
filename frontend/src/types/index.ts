@@ -81,6 +81,13 @@ export interface HistoryResponse {
   items: HistoryItem[];
 }
 
+export interface DownloadedItem {
+  video_id: string;
+  title: string | null;
+  thumbnail_url: string | null;
+  downloaded_at: string; // ISO 8601 timestamp
+}
+
 export interface VideoRecord {
   id: number;
   video_id: string;

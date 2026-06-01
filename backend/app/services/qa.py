@@ -1,3 +1,5 @@
+from typing import Any
+
 from openai import AsyncOpenAI
 
 from app.config import settings
@@ -12,8 +14,10 @@ _SYSTEM_PROMPT = (
 )
 
 
-async def ask_question(transcript: str, question: str, history: list[dict]) -> str:
-    messages: list[dict] = [
+async def ask_question(
+    transcript: str, question: str, history: list[dict[str, Any]]
+) -> str:
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": _SYSTEM_PROMPT.format(transcript=transcript)}
     ]
     messages.extend(history)

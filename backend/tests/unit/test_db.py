@@ -10,12 +10,13 @@ from app.db import (
     get_by_video_id,
     get_download_status,
     get_full_record,
+    list_downloaded,
     list_recent,
     save_download_status,
     save_record,
     soft_delete,
 )
-from app.models import HistoryItem, VideoRecord
+from app.models import DownloadedItem, HistoryItem, VideoRecord
 
 _FAKE_VIDEO_ID = "dQw4w9WgXcQ"
 _FAKE_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
@@ -146,6 +147,58 @@ class TestListRecent:
 
         call_args = mock_conn.fetch.call_args
         assert 10 in call_args.args
+
+
+class TestListDownloaded:
+    async def test_returns_downloaded_items_in_order(self) -> None:
+        """list_downloaded returns DownloadedItems preserving row order."""
+        older_downloaded_at = datetime(2025, 12, 1, tzinfo=UTC)
+        rows = [
+            {
+                "video_id": "newvideo1234",
+                "title": "Newer Video",
+                "thumbnail_url": None,
+                "downloaded_at": _FAKE_CREATED_AT,
+            },
+            {
+                "video_id": "oldvideo1234",
+                "title": "Older Video",
+                "thumbnail_url": None,
+                "downloaded_at": older_downloaded_at,
+            },
+        ]
+
+        mock_conn = AsyncMock()
+        mock_conn.fetch.return_value = rows
+
+        results = await list_downloaded(mock_conn)
+
+        mock_conn.fetch.assert_awaited_once()
+        assert len(results) == 2
+        assert all(isinstance(r, DownloadedItem) for r in results)
+        assert results[0].video_id == "newvideo1234"
+        assert results[1].video_id == "oldvideo1234"
+
+    async def test_query_filters_ready_non_deleted_desc(self) -> None:
+        """The SQL enforces ready-only, non-deleted, and newest-first ordering."""
+        mock_conn = AsyncMock()
+        mock_conn.fetch.return_value = []
+
+        await list_downloaded(mock_conn)
+
+        sql = mock_conn.fetch.call_args.args[0]
+        assert "download_status = 'ready'" in sql
+        assert "deleted_at IS NULL" in sql
+        assert "ORDER BY downloaded_at DESC" in sql
+
+    async def test_returns_empty_list_when_no_rows(self) -> None:
+        """list_downloaded returns an empty list when no rows match."""
+        mock_conn = AsyncMock()
+        mock_conn.fetch.return_value = []
+
+        results = await list_downloaded(mock_conn)
+
+        assert results == []
 
 
 class TestGetFullRecord:
@@ -318,7 +371,7 @@ class TestDeleteDownload:
     async def test_file_missing_logs_warning_returns_false(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """FileNotFoundError logs a warning but still clears DB columns, returns False."""
+        """FileNotFoundError logs a warning, still clears columns, returns False."""
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {"download_path": "/downloads/gone.mp4"}
 
@@ -352,7 +405,7 @@ class TestDeleteDownload:
         assert any("locked.mp4" in msg for msg in caplog.messages)
 
     async def test_idempotent_when_download_path_null(self) -> None:
-        """When download_path is NULL in DB, no file deletion is attempted, returns False."""
+        """When download_path is NULL, no file deletion is attempted, returns False."""
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = {"download_path": None}
 
@@ -367,7 +420,7 @@ class TestDeleteDownload:
         assert result is False
 
     async def test_idempotent_when_no_row(self) -> None:
-        """When no DB record exists (soft-deleted or missing), no file deletion, returns False."""
+        """When no DB record exists (soft-deleted or missing), no deletion, False."""
         mock_conn = AsyncMock()
         mock_conn.fetchrow.return_value = None
 

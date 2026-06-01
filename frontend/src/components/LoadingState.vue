@@ -1,6 +1,6 @@
 <script setup lang="ts">
 withDefaults(defineProps<{ message?: string }>(), {
-  message: 'Generating summary...',
+  message: "Generating summary...",
 });
 </script>
 
@@ -27,7 +27,7 @@ withDefaults(defineProps<{ message?: string }>(), {
 .loading-state__bar {
   width: 100%;
   height: 3px;
-  background: #E5E7EB;
+  background: #e5e7eb;
   border-radius: 2px;
   overflow: hidden;
 }
@@ -35,19 +35,23 @@ withDefaults(defineProps<{ message?: string }>(), {
 .loading-state__fill {
   width: 40%;
   height: 100%;
-  background: #2563EB;
+  background: #2563eb;
   border-radius: 2px;
   animation: slide 1.4s ease-in-out infinite;
 }
 
 @keyframes slide {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
 }
 
 .loading-state__text {
   font-size: 0.85rem;
-  color: #6B7280;
+  color: #6b7280;
   letter-spacing: 0.02em;
 }
 </style>

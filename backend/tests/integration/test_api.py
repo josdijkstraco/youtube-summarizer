@@ -839,7 +839,7 @@ class TestPostDownloadEndpoint:
         mock_conn.execute.assert_not_awaited()
 
     def test_returns_200_noop_when_already_ready(self) -> None:
-        """Trigger while status is 'ready' returns 200 with current status, no re-download."""
+        """Trigger while 'ready' returns 200 with current status, no re-download."""
         mock_conn = _make_conn(
             {
                 "download_status": "ready",
@@ -866,7 +866,7 @@ class TestPostDownloadEndpoint:
         mock_conn.execute.assert_not_awaited()
 
     def test_sets_pending_and_schedules_background_task(self) -> None:
-        """Happy path: no prior download → sets pending, schedules task, returns pending."""
+        """Happy path: no prior download sets pending, schedules task, returns it."""
         mock_conn = _make_conn(
             {
                 "download_status": None,
@@ -1210,7 +1210,7 @@ class TestDeleteDownloadEndpoint:
         assert response.content == b""
 
     def test_returns_204_when_file_missing_on_disk(self) -> None:
-        """Record exists but file already gone from disk → delete_download returns False, still 204."""
+        """Record exists but file already gone: delete_download False, still 204."""
         mock_conn = _make_conn(
             {
                 "download_status": "ready",
@@ -1256,7 +1256,7 @@ class TestDeleteDownloadEndpoint:
         _assert_error_response(response.json(), "not_found")
 
     def test_returns_204_on_idempotent_second_call(self) -> None:
-        """Second delete when download_path already NULL → delete_download still called, 204 returned."""
+        """Second delete when download_path already NULL: still called, 204."""
         mock_conn = _make_conn(
             {
                 "download_status": None,
@@ -1282,3 +1282,63 @@ class TestDeleteDownloadEndpoint:
             app.dependency_overrides.pop(get_db, None)
 
         assert response.status_code == 204
+
+
+# ---------------------------------------------------------------------------
+# T017: GET /api/videos/downloaded integration tests
+# ---------------------------------------------------------------------------
+
+
+# A row shaped like DownloadedItem as returned by list_downloaded's conn.fetch.
+_FAKE_DOWNLOADED_ROW: dict = {
+    "video_id": _FAKE_VIDEO_ID,
+    "title": "Test Video",
+    "thumbnail_url": f"https://i.ytimg.com/vi/{_FAKE_VIDEO_ID}/hqdefault.jpg",
+    "downloaded_at": datetime(2026, 5, 14, tzinfo=UTC),
+}
+
+
+class TestDownloadedEndpoint:
+    """Tests for GET /api/videos/downloaded (the downloaded-videos library)."""
+
+    def test_returns_empty_list_with_default_mocked_db(self) -> None:
+        """Default conftest DB (fetch -> []) returns 200 and {"items": []}."""
+        response = client.get("/api/videos/downloaded")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert data["items"] == []
+
+    def test_returns_items_from_db(self) -> None:
+        """Custom override whose fetch returns DownloadedItem-shaped rows returns
+        200 with items carrying video_id, title, thumbnail_url, downloaded_at."""
+        mock_conn = AsyncMock(spec=asyncpg.Connection)
+        mock_conn.fetch.return_value = [_FAKE_DOWNLOADED_ROW]
+
+        async def override_get_db():
+            yield mock_conn
+
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            response = client.get("/api/videos/downloaded")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert len(data["items"]) == 1
+        item = data["items"][0]
+        assert item["video_id"] == _FAKE_VIDEO_ID
+        assert item["title"] == "Test Video"
+        assert item["thumbnail_url"] == _FAKE_DOWNLOADED_ROW["thumbnail_url"]
+        assert item["downloaded_at"] is not None
+
+    def test_route_resolves_to_list_endpoint_not_download(self) -> None:
+        """The /downloaded path resolves to the LIST endpoint (200 with an
+        "items" key), proving it is not shadowed by /{video_id}/download."""
+        response = client.get("/api/videos/downloaded")
+
+        assert response.status_code == 200
+        assert "items" in response.json()

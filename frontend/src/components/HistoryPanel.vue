@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import type { HistoryItem } from "@/types";
-import { fetchHistory, deleteHistoryItem, restoreHistoryItem } from "@/services/api";
+import {
+  fetchHistory,
+  deleteHistoryItem,
+  restoreHistoryItem,
+} from "@/services/api";
 import HistoryCard from "./HistoryCard.vue";
 
 const historyItems = ref<HistoryItem[]>([]);
@@ -98,8 +102,21 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   <aside class="history-panel">
     <div class="history-panel__heading">
       <h2>Recent Videos</h2>
-      <button class="history-panel__close" aria-label="Close history" @click="emit('close')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button
+        class="history-panel__close"
+        aria-label="Close history"
+        @click="emit('close')"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
@@ -118,7 +135,10 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
       <button class="history-panel__retry" @click="loadHistory">Retry</button>
     </div>
 
-    <div v-else-if="historyItems.length === 0 && !undoToast" class="history-panel__status">
+    <div
+      v-else-if="historyItems.length === 0 && !undoToast"
+      class="history-panel__status"
+    >
       No summaries yet.
     </div>
 
@@ -147,7 +167,7 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   overflow-y: auto;
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 12px;
-  background: #FFFFFF;
+  background: #ffffff;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
 }
 
@@ -160,7 +180,7 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 }
 
 .history-panel__heading h2 {
-  font-family: 'Syne', sans-serif;
+  font-family: "Syne", sans-serif;
   font-size: 1.15rem;
   font-weight: 600;
   color: #111827;
@@ -177,25 +197,27 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   background: none;
   border: none;
   border-radius: 6px;
-  color: #6B7280;
+  color: #6b7280;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .history-panel__close:hover {
-  background: #F3F4F6;
+  background: #f3f4f6;
   color: #111827;
 }
 
 .history-panel__status {
   padding: 1.5rem 1.25rem;
   font-size: 0.85rem;
-  color: #6B7280;
+  color: #6b7280;
   text-align: center;
 }
 
 .history-panel__status--error {
-  color: #DC2626;
+  color: #dc2626;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -204,18 +226,18 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
 
 .history-panel__retry {
   padding: 0.35rem 0.85rem;
-  background: #2563EB;
-  color: #FFFFFF;
+  background: #2563eb;
+  color: #ffffff;
   border: none;
   border-radius: 100px;
   font-size: 0.75rem;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .history-panel__retry:hover {
-  background: #1D4ED8;
+  background: #1d4ed8;
 }
 
 .history-panel__list {
@@ -232,7 +254,7 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
   background: #111827;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 0.8rem;
   border-radius: 0 0 12px 12px;
 }
@@ -242,11 +264,13 @@ const emit = defineEmits<{ selectVideo: [videoId: string]; close: [] }>();
   background: none;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 100px;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 0.75rem;
-  font-family: 'Manrope', sans-serif;
+  font-family: "Manrope", sans-serif;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .history-panel__undo:hover {
