@@ -53,6 +53,10 @@ function handleDelete(event: Event, videoId: string) {
       </a>
       <p class="history-card__summary">{{ item.summary }}</p>
       <span class="history-card__date">{{ formatDate(item.created_at) }}</span>
+      <span
+        v-if="item.download_status === 'ready'"
+        class="history-card__download-indicator"
+      />
     </div>
     <button
       class="history-card__delete"
@@ -88,6 +92,18 @@ function handleDelete(event: Event, videoId: string) {
 
 .history-card__thumb-link {
   flex-shrink: 0;
+  position: relative;
+}
+
+.history-card__download-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10B981;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+  pointer-events: none;
 }
 
 .history-card__thumb {

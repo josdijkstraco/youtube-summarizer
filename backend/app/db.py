@@ -209,7 +209,8 @@ async def get_by_video_id(
 async def list_recent(conn: asyncpg.Connection, limit: int) -> list[HistoryItem]:
     rows = await conn.fetch(
         "SELECT video_id, title, thumbnail_url, summary, created_at, "
-        "(fallacy_analysis IS NOT NULL) as has_fallacy_analysis "
+        "(fallacy_analysis IS NOT NULL) as has_fallacy_analysis, "
+        "download_status "
         "FROM youtube_summarizer.summaries "
         "WHERE deleted_at IS NULL "
         "ORDER BY created_at DESC LIMIT $1",

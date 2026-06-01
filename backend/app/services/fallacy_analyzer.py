@@ -9,7 +9,7 @@ from app.models import FallacyAnalysisResult
 logger = logging.getLogger(__name__)
 
 _MODEL = "gpt-4o-mini"
-_TIMEOUT = 30
+_TIMEOUT = 120
 
 _FALLACY_SYSTEM_PROMPT = (
     "You are an expert in logic, rhetoric, and critical thinking. "

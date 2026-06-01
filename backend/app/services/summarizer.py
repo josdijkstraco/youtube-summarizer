@@ -5,7 +5,7 @@ from openai import OpenAI
 from app.config import settings
 
 _MODEL = "gpt-4o-mini"
-_TIMEOUT = 30
+_TIMEOUT = 120
 
 # Approximate token limit for a single API call.
 # GPT-4o-mini supports 128K input tokens; we leave headroom for the system prompt.

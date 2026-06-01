@@ -135,6 +135,7 @@ class HistoryItem(BaseModel):
     summary: str
     has_fallacy_analysis: bool = False
     created_at: datetime
+    download_status: str | None = None
 
 
 class HistoryResponse(BaseModel):

@@ -3,7 +3,7 @@ from openai import AsyncOpenAI
 from app.config import settings
 
 _MODEL = "gpt-4o"
-_TIMEOUT = 30
+_TIMEOUT = 120
 
 _SYSTEM_PROMPT = (
     "You are a helpful assistant answering questions about a YouTube video transcript. "

@@ -74,6 +74,7 @@ export interface HistoryItem {
   summary: string;
   has_fallacy_analysis: boolean;
   created_at: string; // ISO 8601 timestamp
+  download_status: string | null;
 }
 
 export interface HistoryResponse {
